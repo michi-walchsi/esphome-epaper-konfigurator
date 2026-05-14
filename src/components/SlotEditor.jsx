@@ -25,9 +25,8 @@ function SortableSlot({ slot, index, onUpdate, onDelete, entities }) {
     onUpdate(slot.id, 'entityId', entity.entity_id);
     if (entity.attributes?.unit_of_measurement)
       onUpdate(slot.id, 'unit', entity.attributes.unit_of_measurement);
-    if (!slot.title || slot.title === 'Neuer Slot') {
-      const name = entity.attributes?.friendly_name ?? entity.entity_id.split('.')[1];
-      onUpdate(slot.id, 'title', name);
+    if ((!slot.title || slot.title === 'Neuer Slot') && entity.attributes?.friendly_name) {
+      onUpdate(slot.id, 'title', entity.attributes.friendly_name);
     }
     setPickerOpen(false);
   };
