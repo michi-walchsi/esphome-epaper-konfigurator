@@ -32,24 +32,26 @@ export default function YamlTab({ yaml, deviceName }) {
           <button className="yaml-btn primary" onClick={download}>⬇ Download</button>
         </div>
       </div>
-      <pre className="yaml-code">{highlight(yaml)}</pre>
+      <pre className="yaml-code">{highlightLines(yaml)}</pre>
     </div>
   );
 }
 
-// Simple YAML syntax highlighting via span injection — returns JSX
-function highlight(text) {
+function highlightLines(text) {
   if (!text) return null;
   return text.split('\n').map((line, i) => {
     const trimmed = line.trimStart();
-    let color = '#e6edf3';
+    let color;
+    if (trimmed.startsWith('#'))                       color = '#8b949e'; // Kommentar
+    else if (/^[a-z_]+:/.test(trimmed))                color = '#79c0ff'; // Schlüssel
+    else if (/^\s*-\s*platform:\s/.test(line))         color = '#a371f7'; // platform
+    else if (/^\s*-\s*file:\s/.test(line))             color = '#a371f7'; // file
+    else if (/^\s*-\s*id:\s/.test(line))               color = '#ffa657'; // id
+    else if (/:\s*["']/.test(line))                    color = '#a5d6ff'; // Strings
+    else if (/:\s*\d/.test(line))                      color = '#79c0ff'; // Zahlen
+    else if (trimmed.startsWith('-'))                  color = '#e6edf3'; // List item
+    else                                               color = '#e6edf3';
 
-    if (trimmed.startsWith('#'))           color = '#8b949e'; // comment
-    else if (/^[a-z_]+:/.test(trimmed))    color = '#79c0ff'; // key
-    else if (/^\s*-\s+platform:/.test(line)) color = '#a371f7'; // platform
-
-    return (
-      <span key={i} style={{ color, display: 'block' }}>{line}{'\n'}</span>
-    );
+    return <span key={i} style={{ color, display: 'block' }}>{line}</span>;
   });
 }
