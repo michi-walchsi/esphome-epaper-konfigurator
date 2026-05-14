@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 
 from homeassistant.core import HomeAssistant
@@ -13,12 +14,22 @@ STATIC_PATH = "/esphome-epaper-panel"
 PANEL_URL   = "esphome-epaper"
 
 
+def _manifest_version() -> str:
+    try:
+        manifest = os.path.join(os.path.dirname(__file__), "manifest.json")
+        with open(manifest, encoding="utf-8") as f:
+            return json.load(f).get("version", "0")
+    except Exception:
+        return "0"
+
+
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     www_path = os.path.join(os.path.dirname(__file__), "www")
+    version  = _manifest_version()
 
     try:
         await hass.http.async_register_static_paths([
@@ -32,7 +43,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             hass,
             webcomponent_name="esphome-epaper-panel",
             frontend_url_path=PANEL_URL,
-            module_url=f"{STATIC_PATH}/panel.js",
+            module_url=f"{STATIC_PATH}/panel.js?v={version}",
             sidebar_title="ESPHome Konfigurator",
             sidebar_icon="mdi:chip",
             require_admin=False,
@@ -40,7 +51,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except ValueError:
         pass  # panel already registered from a previous setup
 
-    _LOGGER.info("ESPHome ePaper Konfigurator Panel registriert")
+    _LOGGER.info("ESPHome ePaper Konfigurator Panel v%s registriert", version)
     return True
 
 
