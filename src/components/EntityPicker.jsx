@@ -2,7 +2,10 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { DOMAIN_META, formatState } from '../utils/entities';
 
 const ALLOWED_DOMAINS = new Set([
-  'sensor', 'binary_sensor', 'input_number', 'input_boolean', 'weather', 'sun',
+  'sensor', 'binary_sensor', 'input_number', 'number',
+  'input_boolean', 'input_text', 'weather', 'sun',
+  'switch', 'light', 'climate', 'cover', 'fan',
+  'media_player', 'person', 'device_tracker',
 ]);
 
 export default function EntityPicker({ entities, isOpen, onClose, onSelect }) {

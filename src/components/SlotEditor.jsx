@@ -22,6 +22,10 @@ function SortableSlot({ slot, index, onUpdate, onDelete, entities }) {
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? .5 : 1 };
   const sizeLabel = SLOT_SIZES.find(s => s.id === slot.size)?.label ?? 'Small (1×1)';
 
+  // Warn when a specific entity ID is set but not found in the known entities list
+  const entityMissing = slot.entityId && entities.length > 0
+    && !entities.some(e => e.entity_id === slot.entityId);
+
   const handleEntitySelect = entity => {
     onUpdate(slot.id, 'entityId', entity.entity_id);
     if (entity.attributes?.unit_of_measurement)
@@ -39,6 +43,9 @@ function SortableSlot({ slot, index, onUpdate, onDelete, entities }) {
         <span className="slot-num">#{index + 1}</span>
         <button className="slot-toggle" onClick={() => setOpen(o => !o)}>
           <span className="slot-toggle-name">{slot.title || `Slot ${index + 1}`}</span>
+          {entityMissing && (
+            <span className="slot-warn-badge" title={`Entity nicht gefunden: ${slot.entityId}`}>⚠ Entity?</span>
+          )}
           <span className="slot-size-badge">{sizeLabel}</span>
           {open ? <IcoChevUp size={11} className="slot-chevron" /> : <IcoChevDown size={11} className="slot-chevron" />}
         </button>
@@ -61,6 +68,11 @@ function SortableSlot({ slot, index, onUpdate, onDelete, entities }) {
                 <IcoGrid size={14} />
               </button>
             </div>
+            {entityMissing && (
+              <span style={{ fontSize: 11, color: 'var(--warning)', marginTop: 3, display: 'block' }}>
+                ⚠ Entity nicht in Home Assistant gefunden — bitte über den Picker eine echte Entity wählen.
+              </span>
+            )}
           </div>
           <div className="form-group">
             <label>Einheit</label>

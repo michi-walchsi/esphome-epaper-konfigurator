@@ -74,11 +74,13 @@ export default function LivePreview({ config, slots, entities, batteryLevel, has
         >
           {layout.map(({ slot, size, col, row }) => {
             const entity    = getEntityData(slot.entityId);
-            const state     = entity?.state ?? null;
+            const rawState  = entity?.state ?? null;
+            // treat unavailable/unknown like missing data
+            const state     = (rawState === 'unavailable' || rawState === 'unknown') ? null : rawState;
             const unit      = slot.unit || entity?.attributes?.unit_of_measurement || '';
             const hasEntity = Boolean(slot.entityId);
             const isNumeric = state !== null && !isNaN(parseFloat(state));
-            const displayState = entity ? formatState(entity) : state;
+            const displayState = (entity && state !== null) ? formatState(entity) : state;
 
             // Title: manual > friendly_name from HA > entity id short form > fallback
             const displayTitle = slot.title
