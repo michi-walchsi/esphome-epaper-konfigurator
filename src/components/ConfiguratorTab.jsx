@@ -164,7 +164,7 @@ export default function ConfiguratorTab({
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onSave}>💾 Konfiguration speichern</button>
             </div>
-            <FlashButton config={config} yaml={yaml} esphomeUrl={esphomeUrl} />
+            <FlashButton config={config} yaml={yaml} esphomeUrl={esphomeUrl} isDemo={!isPanel} />
           </div>
 
         </div>

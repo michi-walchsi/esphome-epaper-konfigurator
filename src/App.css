@@ -202,7 +202,7 @@
 }
 .devices-header-left { display: flex; flex-direction: column; gap: 6px; }
 .devices-header h2   { font-size: 17px; font-weight: 700; }
-.esphome-url-row { display: flex; align-items: center; gap: 8px; }
+.esphome-url-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .esphome-url-row input {
   background: var(--bg-2);
   border: 1px solid var(--border);
@@ -211,7 +211,8 @@
   padding: 5px 9px;
   font-size: 12px;
   font-family: var(--mono);
-  width: 260px;
+  flex: 1;
+  min-width: 180px;
   transition: border-color .15s;
 }
 .esphome-url-row input:focus { outline: none; border-color: var(--accent); }
@@ -448,8 +449,29 @@
 .size-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 .slot-empty { text-align: center; padding: 20px; color: var(--text-3); font-size: 13px; }
 
+/* ── New Device Dialog ───────────────────────────────────── */
+.new-device-dialog {
+  background: var(--bg-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 28px 32px;
+  width: min(420px, 92vw);
+  box-shadow: 0 32px 80px rgba(0,0,0,.7);
+}
+.new-device-dialog-title {
+  font-size: 17px; font-weight: 700; color: var(--text-1); margin-bottom: 20px;
+}
+.new-device-dialog-actions {
+  display: flex; gap: 10px; justify-content: flex-end; margin-top: 4px;
+}
+
 /* ── Flash Button ────────────────────────────────────────── */
 .flash-section { display: flex; flex-direction: column; gap: 8px; }
+.flash-demo-badge {
+  padding: 5px 10px; background: rgba(88,166,255,.1); border: 1px solid rgba(88,166,255,.3);
+  border-radius: var(--rs); color: var(--accent); font-size: 11px; font-weight: 600;
+  letter-spacing: .2px;
+}
 .flash-warning {
   padding: 8px 12px; background: rgba(210,153,34,.1); border: 1px solid rgba(210,153,34,.35);
   border-radius: var(--rs); color: var(--warning); font-size: 12px;

@@ -15,7 +15,7 @@ const INIT_CONFIG = {
   customWidth:    800,
   customHeight:   480,
   spiPins:        { cs: 'GPIO5', dc: 'GPIO17', rst: 'GPIO16', busy: 'GPIO4', clk: 'GPIO18', mosi: 'GPIO23' },
-  deepSleep:      30,
+  deepSleep:      0,
   updateInterval: 60,
   gridCols:       3,
   batteryEntityId:'',
@@ -31,6 +31,45 @@ const INIT_SLOTS = [
   { id: '4', title: 'Helligkeit',       unit: 'lx',  entityId: 'sensor.illuminance',              size: 'small'  },
 ];
 
+// Demo devices shown when localStorage is empty
+const DEMO_DEVICES = [
+  {
+    name:        'wohnzimmer-display',
+    displayName: 'Wohnzimmer Display',
+    board:       BOARDS[0].name,
+    display:     DISPLAYS[0].name,
+    savedAt:     Date.now() - 86400000,
+    config:      { ...INIT_CONFIG, deviceName: 'wohnzimmer-display', displayName: 'Wohnzimmer Display', deepSleep: 0, board: BOARDS[0], display: DISPLAYS[0], batteryEntityId: 'sensor.epaper_battery' },
+    slots:       INIT_SLOTS,
+  },
+  {
+    name:        'schlafzimmer-sensor',
+    displayName: 'Schlafzimmer Sensor',
+    board:       BOARDS[1].name,
+    display:     DISPLAYS[2].name,
+    savedAt:     Date.now() - 7200000,
+    config:      { ...INIT_CONFIG, deviceName: 'schlafzimmer-sensor', displayName: 'Schlafzimmer Sensor', deepSleep: 30, board: BOARDS[1], display: DISPLAYS[2] },
+    slots:       [
+      { id: '10', title: 'Temperatur',       unit: '°C', entityId: 'sensor.temperature_bedroom',  size: 'medium' },
+      { id: '11', title: 'Luftfeuchtigkeit', unit: '%',  entityId: 'sensor.humidity_bedroom',      size: 'medium' },
+    ],
+  },
+  {
+    name:        'garten-monitor',
+    displayName: 'Garten Monitor',
+    board:       BOARDS[3].name,
+    display:     DISPLAYS[1].name,
+    savedAt:     Date.now() - 259200000,
+    status:      'offline',
+    config:      { ...INIT_CONFIG, deviceName: 'garten-monitor', displayName: 'Garten Monitor', deepSleep: 0, board: BOARDS[3], display: DISPLAYS[1] },
+    slots:       [
+      { id: '20', title: 'Außentemperatur', unit: '°C',  entityId: 'sensor.temperature_outdoor', size: 'medium' },
+      { id: '21', title: 'Windgeschw.',     unit: 'km/h', entityId: 'sensor.wind_speed',          size: 'small'  },
+      { id: '22', title: 'Regen heute',     unit: 'mm',  entityId: 'sensor.rain_today',           size: 'small'  },
+    ],
+  },
+];
+
 export default function App({ hass = null }) {
   const [tab,           setTab]           = useState('devices');
   const [config,        setConfig]        = useState(INIT_CONFIG);
@@ -39,9 +78,12 @@ export default function App({ hass = null }) {
   const [esphomeStatus,  setEsphomeStatus]  = useState('idle');
   const [esphomeVersion, setEsphomeVersion] = useState(null);
   const [esphomeConfigs, setEsphomeConfigs] = useState([]);
+  const [showNewDialog,  setShowNewDialog]  = useState(false);
   const [devices,        setDevices]        = useState(() => {
-    try { return JSON.parse(localStorage.getItem('esphome_devices') || '[]'); }
-    catch { return []; }
+    try {
+      const stored = JSON.parse(localStorage.getItem('esphome_devices'));
+      return stored?.length ? stored : DEMO_DEVICES;
+    } catch { return DEMO_DEVICES; }
   });
 
   const isPanel = hass !== null;
@@ -64,7 +106,6 @@ export default function App({ hass = null }) {
     setEsphomeStatus('loading');
     setEsphomeVersion(null);
     try {
-      // Try with CORS first (ESPHome 2023+ sets Access-Control-Allow-Origin: *)
       const res = await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000) });
       if (res.ok) {
         const data = await res.json().catch(() => null);
@@ -72,7 +113,6 @@ export default function App({ hass = null }) {
       }
       setEsphomeStatus('ok');
     } catch {
-      // Fall back to no-cors connectivity probe (response body unreadable)
       try {
         await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000), mode: 'no-cors' });
         setEsphomeStatus('ok');
@@ -126,20 +166,28 @@ export default function App({ hass = null }) {
 
   const saveDevice = useCallback(() => {
     const device = {
-      name:       config.deviceName,
+      name:        config.deviceName,
       displayName: config.displayName,
-      board:      config.board.name,
-      display:    config.display.name,
-      ip:         '',
-      savedAt:    Date.now(),
-      config:     { ...config },
-      slots:      slots,
+      board:       config.board.name,
+      display:     config.display.name,
+      ip:          '',
+      savedAt:     Date.now(),
+      config:      { ...config },
+      slots:       slots,
     };
     setDevices(prev => {
       const filtered = prev.filter(d => d.name !== device.name);
       return [device, ...filtered];
     });
   }, [config, slots]);
+
+  const handleNewDevice = useCallback((deviceName) => {
+    const newConfig = { ...INIT_CONFIG, deviceName, displayName: deviceName.replace(/-/g, ' ') };
+    setConfig(newConfig);
+    setSlots([]);
+    setShowNewDialog(false);
+    setTab('configurator');
+  }, []);
 
   return (
     <div className="app">
@@ -192,7 +240,7 @@ export default function App({ hass = null }) {
             onLoadConfigs={loadEsphomeConfigs}
             onOpen={openDevice}
             onDelete={name => setDevices(prev => prev.filter(d => d.name !== name))}
-            onNew={() => { setConfig(INIT_CONFIG); setSlots(INIT_SLOTS); setTab('configurator'); }}
+            onNew={() => setShowNewDialog(true)}
           />
         )}
         {tab === 'configurator' && (
@@ -212,6 +260,50 @@ export default function App({ hass = null }) {
         {tab === 'yaml' && (
           <YamlTab yaml={yaml} deviceName={config.deviceName} />
         )}
+      </div>
+
+      {/* ── New Device Dialog ── */}
+      {showNewDialog && (
+        <NewDeviceDialog
+          onConfirm={handleNewDevice}
+          onCancel={() => setShowNewDialog(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+function NewDeviceDialog({ onConfirm, onCancel }) {
+  const [name, setName] = useState('');
+  const valid = /^[a-z0-9][a-z0-9-]*$/.test(name);
+
+  return (
+    <div className="picker-overlay" onMouseDown={e => { if (e.target === e.currentTarget) onCancel(); }}>
+      <div className="new-device-dialog">
+        <div className="new-device-dialog-title">Neues Gerät anlegen</div>
+        <div className="form-group" style={{ marginBottom: 16 }}>
+          <label>Gerätename <span style={{ color: 'var(--text-3)', fontWeight: 400 }}>(ESPHome Identifier)</span></label>
+          <input
+            autoFocus
+            value={name}
+            onChange={e => setName(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+/, ''))}
+            placeholder="mein-display"
+            style={{ fontFamily: 'var(--mono)' }}
+            onKeyDown={e => {
+              if (e.key === 'Enter' && valid) onConfirm(name);
+              if (e.key === 'Escape') onCancel();
+            }}
+          />
+          <span style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4, display: 'block' }}>
+            Kleinbuchstaben und Bindestriche · wird als ESPHome Hostname verwendet
+          </span>
+        </div>
+        <div className="new-device-dialog-actions">
+          <button className="btn btn-ghost" onClick={onCancel}>Abbrechen</button>
+          <button className="btn btn-primary" disabled={!valid} onClick={() => onConfirm(name)}>
+            Konfigurator öffnen →
+          </button>
+        </div>
       </div>
     </div>
   );

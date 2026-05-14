@@ -99,9 +99,10 @@ function DeviceCard({ device, onOpen, onDelete }) {
     ? new Date(device.savedAt).toLocaleString('de-AT', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '—';
 
-  const hasDeepSleep = device.config?.deepSleep > 0;
-  const statusClass  = hasDeepSleep ? 'sleep' : 'online';
-  const statusLabel  = hasDeepSleep ? '💤 Deep Sleep' : '● Online';
+  const isOffline    = device.status === 'offline';
+  const hasDeepSleep = !isOffline && (device.config?.deepSleep ?? 0) > 0;
+  const statusClass  = isOffline ? 'offline' : hasDeepSleep ? 'sleep' : 'online';
+  const statusLabel  = isOffline ? '⚠ Offline' : hasDeepSleep ? '💤 Deep Sleep' : '● Online';
 
   return (
     <div className="device-card" onClick={onOpen}>
