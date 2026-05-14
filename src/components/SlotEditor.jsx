@@ -96,15 +96,17 @@ export default function SlotEditor({ slots, onChange, entities }) {
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const addSlot   = () => { if (slots.length >= 16) return; onChange([...slots, { id: `${Date.now()}`, title: 'Neuer Slot', unit: '', entityId: '', size: 'small' }]); };
-  const deleteSlot = id  => onChange(slots.filter(s => s.id !== id));
-  const updateSlot = (id, key, val) => onChange(slots.map(s => s.id === id ? { ...s, [key]: val } : s));
+  const addSlot   = () => { if (slots.length >= 16) return; onChange(prev => [...prev, { id: `${Date.now()}`, title: 'Neuer Slot', unit: '', entityId: '', size: 'small' }]); };
+  const deleteSlot = id  => onChange(prev => prev.filter(s => s.id !== id));
+  const updateSlot = (id, key, val) => onChange(prev => prev.map(s => s.id === id ? { ...s, [key]: val } : s));
 
   const handleDragEnd = ({ active, over }) => {
     if (over && active.id !== over.id) {
-      const from = slots.findIndex(s => s.id === active.id);
-      const to   = slots.findIndex(s => s.id === over.id);
-      onChange(arrayMove(slots, from, to));
+      onChange(prev => {
+        const from = prev.findIndex(s => s.id === active.id);
+        const to   = prev.findIndex(s => s.id === over.id);
+        return arrayMove(prev, from, to);
+      });
     }
   };
 
