@@ -105,7 +105,7 @@ wifi:
 ${wifiBlock}
   ap:
     ssid: "${esc(displayName)} Fallback"
-    password: "fallback123"
+    password: !secret ap_password
 
 captive_portal:
 

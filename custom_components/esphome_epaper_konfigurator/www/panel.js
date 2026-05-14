@@ -866,7 +866,7 @@ wifi:
 ${E}
   ap:
     ssid: "${se(o)} Fallback"
-    password: "fallback123"
+    password: !secret ap_password
 
 captive_portal:
 
