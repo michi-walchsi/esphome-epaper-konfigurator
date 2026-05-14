@@ -9,6 +9,13 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
+export const APP_VERSION = '1.5.0';
+
+// These demo device names are removed from localStorage automatically on first load
+const LEGACY_DEMO_NAMES = new Set([
+  'wohnzimmer-display', 'schlafzimmer-sensor', 'garten-monitor',
+]);
+
 const INIT_CONFIG = {
   title:          'Mein Dashboard',
   deviceName:     'epaper-display',
@@ -27,51 +34,6 @@ const INIT_CONFIG = {
   esphomeUrl:     'http://homeassistant.local:6052',
 };
 
-const INIT_SLOTS = [
-  { id: '1', title: 'Temperatur',       unit: '°C',  entityId: 'sensor.temperature_living_room', size: 'small'  },
-  { id: '2', title: 'Luftfeuchtigkeit', unit: '%',   entityId: 'sensor.humidity_living_room',    size: 'small'  },
-  { id: '3', title: 'CO₂',             unit: 'ppm', entityId: 'sensor.co2_living_room',          size: 'medium' },
-  { id: '4', title: 'Helligkeit',       unit: 'lx',  entityId: 'sensor.illuminance',              size: 'small'  },
-];
-
-const DEMO_DEVICES = [
-  {
-    name:        'wohnzimmer-display',
-    displayName: 'Wohnzimmer Display',
-    board:       BOARDS[0].name,
-    display:     DISPLAYS[0].name,
-    savedAt:     Date.now() - 86400000,
-    config:      { ...INIT_CONFIG, deviceName: 'wohnzimmer-display', displayName: 'Wohnzimmer Display', deepSleep: 0, board: BOARDS[0], display: DISPLAYS[0], batteryEntityId: 'sensor.epaper_battery' },
-    slots:       INIT_SLOTS,
-  },
-  {
-    name:        'schlafzimmer-sensor',
-    displayName: 'Schlafzimmer Sensor',
-    board:       BOARDS[1].name,
-    display:     DISPLAYS[2].name,
-    savedAt:     Date.now() - 7200000,
-    config:      { ...INIT_CONFIG, deviceName: 'schlafzimmer-sensor', displayName: 'Schlafzimmer Sensor', deepSleep: 30, board: BOARDS[1], display: DISPLAYS[2] },
-    slots:       [
-      { id: '10', title: 'Temperatur',       unit: '°C', entityId: 'sensor.temperature_bedroom',  size: 'medium' },
-      { id: '11', title: 'Luftfeuchtigkeit', unit: '%',  entityId: 'sensor.humidity_bedroom',      size: 'medium' },
-    ],
-  },
-  {
-    name:        'garten-monitor',
-    displayName: 'Garten Monitor',
-    board:       BOARDS[3].name,
-    display:     DISPLAYS[1].name,
-    savedAt:     Date.now() - 259200000,
-    status:      'offline',
-    config:      { ...INIT_CONFIG, deviceName: 'garten-monitor', displayName: 'Garten Monitor', deepSleep: 0, board: BOARDS[3], display: DISPLAYS[1] },
-    slots:       [
-      { id: '20', title: 'Außentemperatur', unit: '°C',  entityId: 'sensor.temperature_outdoor', size: 'medium' },
-      { id: '21', title: 'Windgeschw.',     unit: 'km/h', entityId: 'sensor.wind_speed',          size: 'small'  },
-      { id: '22', title: 'Regen heute',     unit: 'mm',  entityId: 'sensor.rain_today',           size: 'small'  },
-    ],
-  },
-];
-
 const TABS = [
   { id: 'devices',      Icon: IcoList,     label: 'Geräte'       },
   { id: 'configurator', Icon: IcoSettings, label: 'Konfigurator' },
@@ -79,23 +41,25 @@ const TABS = [
 ];
 
 export default function App({ hass = null }) {
-  const [tab,           setTab]           = useState('devices');
-  const [config,        setConfig]        = useState(INIT_CONFIG);
-  const [slots,         setSlots]         = useState(INIT_SLOTS);
-  const [entities,      setEntities]      = useState(DEMO_ENTITIES);
+  const [tab,            setTab]            = useState('devices');
+  const [config,         setConfig]         = useState(INIT_CONFIG);
+  const [slots,          setSlots]          = useState([]);
+  const [entities,       setEntities]       = useState(DEMO_ENTITIES);
   const [esphomeStatus,  setEsphomeStatus]  = useState('idle');
   const [esphomeVersion, setEsphomeVersion] = useState(null);
   const [esphomeConfigs, setEsphomeConfigs] = useState([]);
   const [showNewDialog,  setShowNewDialog]  = useState(false);
   const [devices,        setDevices]        = useState(() => {
     try {
-      const stored = JSON.parse(localStorage.getItem('esphome_devices'));
-      return stored?.length ? stored : DEMO_DEVICES;
-    } catch { return DEMO_DEVICES; }
+      const stored = JSON.parse(localStorage.getItem('esphome_devices')) ?? [];
+      // Auto-migrate: wipe known demo devices added in earlier app versions
+      return stored.filter(d => !LEGACY_DEMO_NAMES.has(d.name));
+    } catch { return []; }
   });
 
   const isPanel = hass !== null;
 
+  // Load real HA entities whenever hass changes
   useEffect(() => {
     if (!hass?.states) return;
     setEntities(
@@ -166,7 +130,7 @@ export default function App({ hass = null }) {
 
   const openDevice = useCallback((device) => {
     if (device.config) setConfig(p => ({ ...p, ...device.config }));
-    if (device.slots)  setSlots(device.slots);
+    setSlots(device.slots ?? []);
     setTab('configurator');
   }, []);
 
@@ -202,14 +166,17 @@ export default function App({ hass = null }) {
           <IcoMonitor size={22} className="app-logo" />
           <div>
             <div className="app-title">ESPHome e-Paper Konfigurator</div>
-            <div className="app-sub">HACS Custom Panel · {effectiveDisplay.width}×{effectiveDisplay.height}px</div>
+            <div className="app-sub">
+              v{APP_VERSION} · {effectiveDisplay.width}×{effectiveDisplay.height}px
+              {!isPanel && <span style={{ marginLeft: 6, color: 'var(--accent)' }}>· Dev-Modus</span>}
+            </div>
           </div>
         </div>
         <div className="app-header-right">
           <StatusBadge icon={<IcoCpu size={13} />} label="ESPHome" status={esphomeStatus}
             overrideText={esphomeVersion ? `v${esphomeVersion}` : undefined} />
           <StatusBadge icon={<IcoHome size={13} />} label="HA" status={isPanel ? 'ok' : 'demo'}
-            overrideText={isPanel ? `${entities.length} Entitäten` : 'Demo-Modus'} />
+            overrideText={isPanel ? `${entities.length} Entitäten` : 'Dev-Modus'} />
           {batteryLevel !== null && <BatteryBadge level={batteryLevel} />}
         </div>
       </header>
@@ -311,7 +278,7 @@ function NewDeviceDialog({ onConfirm, onCancel }) {
 
 function StatusBadge({ icon, label, status, overrideText }) {
   const colors = { idle: '#484f58', loading: '#d29922', ok: '#3fb950', error: '#f85149', demo: '#58a6ff' };
-  const texts  = { idle: 'Nicht verbunden', loading: 'Verbinde…', ok: 'Verbunden', error: 'Fehler', demo: 'Demo' };
+  const texts  = { idle: 'Nicht verbunden', loading: 'Verbinde…', ok: 'Verbunden', error: 'Fehler', demo: 'Dev' };
   const color  = colors[status] ?? '#484f58';
   const text   = overrideText ?? texts[status] ?? status;
   return (
