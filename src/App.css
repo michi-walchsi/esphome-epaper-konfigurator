@@ -1,6 +1,10 @@
-/* ── Design Tokens — HA theme variables with standalone fallbacks ── */
-:root {
-  /* Background layers — map to HA dark theme variables */
+/* ── Design Tokens ──────────────────────────────────────────────────
+   Defined on .app (not :root) so they work inside HA's Shadow DOM.
+   HA CSS vars inherit through shadow boundaries and are used as
+   fallback-source; our own vars are always defined on the root element.
+   ─────────────────────────────────────────────────────────────────── */
+.app {
+  /* Background layers — pick up HA theme when available */
   --bg-0:   var(--primary-background-color,   #0d1117);
   --bg-1:   var(--card-background-color,      #161b22);
   --bg-2:   var(--secondary-background-color, #21262d);
@@ -11,19 +15,20 @@
   --text-2: var(--secondary-text-color, #8b949e);
   --text-3: var(--disabled-text-color,  #484f58);
 
-  /* Structure */
-  --border: var(--divider-color, #30363d);
+  /* Border — intentionally NOT using --divider-color:
+     HA sets it to rgba(255,255,255,0.12) which is invisible on dark bg. */
+  --border: rgba(255, 255, 255, 0.18);
 
   /* Accent — uses HA primary color when available */
   --accent:     var(--primary-color, #58a6ff);
   --accent-h:   var(--primary-color, #79b8ff);
-  --accent-dim: rgba(88, 166, 255, .14);
+  --accent-dim: rgba(88, 166, 255, .15);
 
   /* Status */
   --success: #3fb950;
   --warning: #d29922;
   --danger:  #f85149;
-  --danger-dim: #3d1c1c;
+  --danger-dim: rgba(248, 81, 73, 0.15);
 
   --mono: 'Consolas', 'Monaco', 'Courier New', monospace;
   --r: 8px;
@@ -135,23 +140,27 @@
 .form-group label { font-size: 12px; color: var(--text-1); font-weight: 500; opacity: .85; }
 .form-group input,
 .form-group select {
-  background: var(--bg-2);
-  border: 1px solid color-mix(in srgb, var(--border) 100%, transparent 0%);
+  background: rgba(255, 255, 255, 0.07);
+  border: 1px solid var(--border);
   border-radius: var(--rs);
   color: var(--text-1);
   padding: 7px 10px;
   font-size: 13px;
   font-family: inherit;
-  transition: border-color .15s, box-shadow .15s;
+  transition: border-color .15s, box-shadow .15s, background .15s;
   width: 100%;
 }
 .form-group input:hover:not(:focus),
-.form-group select:hover:not(:focus) { border-color: var(--text-3); }
+.form-group select:hover:not(:focus) {
+  border-color: rgba(255, 255, 255, 0.32);
+  background: rgba(255, 255, 255, 0.1);
+}
 .form-group input:focus,
 .form-group select:focus {
   outline: none;
   border-color: var(--accent);
-  box-shadow: 0 0 0 3px rgba(88,166,255,.15);
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: 0 0 0 3px rgba(88, 166, 255, .18);
 }
 .form-group select {
   cursor: pointer;
