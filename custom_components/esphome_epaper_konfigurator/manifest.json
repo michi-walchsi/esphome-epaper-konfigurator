@@ -1,7 +1,7 @@
 {
   "domain": "esphome_epaper_konfigurator",
   "name": "ESPHome ePaper Konfigurator",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "codeowners": ["@michi-walchsi"],
   "config_flow": true,
   "documentation": "https://github.com/michi-walchsi/esphome-epaper-konfigurator",

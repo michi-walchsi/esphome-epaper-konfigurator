@@ -1,6 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { DOMAIN_META, formatState } from '../utils/entities';
 
+const ALLOWED_DOMAINS = new Set([
+  'sensor', 'binary_sensor', 'input_number', 'input_boolean', 'weather', 'sun',
+]);
+
 export default function EntityPicker({ entities, isOpen, onClose, onSelect }) {
   const [query, setQuery] = useState('');
   const searchRef = useRef(null);
@@ -19,14 +23,19 @@ export default function EntityPicker({ entities, isOpen, onClose, onSelect }) {
     return () => window.removeEventListener('keydown', handler);
   }, [isOpen, onClose]);
 
+  const relevant = useMemo(
+    () => entities.filter(e => ALLOWED_DOMAINS.has(e.entity_id.split('.')[0])),
+    [entities],
+  );
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return entities.slice(0, 500);
-    return entities.filter(e =>
+    if (!q) return relevant.slice(0, 500);
+    return relevant.filter(e =>
       e.entity_id.toLowerCase().includes(q) ||
       (e.attributes?.friendly_name?.toLowerCase() ?? '').includes(q)
     ).slice(0, 200);
-  }, [entities, query]);
+  }, [relevant, query]);
 
   const grouped = useMemo(() => {
     const g = {};
@@ -50,7 +59,7 @@ export default function EntityPicker({ entities, isOpen, onClose, onSelect }) {
               className="picker-search-input"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder={`${entities.length} Entitäten durchsuchen…`}
+              placeholder={`${relevant.length} Entitäten durchsuchen…`}
             />
             {query && (
               <button className="picker-clear" onClick={() => setQuery('')}>✕</button>
