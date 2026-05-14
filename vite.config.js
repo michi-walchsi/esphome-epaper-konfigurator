@@ -3,8 +3,10 @@ import react from '@vitejs/plugin-react';
 
 export default defineConfig(({ command }) => ({
   plugins: [react()],
-  // Dev-Server: public/ für Favicon usw. — Build: nichts kopieren
   publicDir: command === 'build' ? false : 'public',
+  define: {
+    'process.env.NODE_ENV': JSON.stringify('production'),
+  },
   build: {
     lib: {
       entry: 'src/ha-panel.jsx',
