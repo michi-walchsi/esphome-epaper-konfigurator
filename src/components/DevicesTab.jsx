@@ -1,5 +1,13 @@
-export default function DevicesTab({ devices, esphomeStatus, esphomeUrl, onUrlChange, onRefresh, onOpen, onDelete, onNew }) {
+export default function DevicesTab({
+  devices, esphomeStatus, esphomeVersion, esphomeConfigs,
+  esphomeUrl, onUrlChange, onRefresh, onLoadConfigs, onOpen, onDelete, onNew,
+}) {
   const dotColor = { idle: '#484f58', loading: '#d29922', ok: '#3fb950', error: '#f85149' }[esphomeStatus] ?? '#484f58';
+  const canLoad  = esphomeStatus === 'ok';
+
+  // Configs present in ESPHome but not yet saved locally
+  const savedNames  = new Set(devices.map(d => d.name));
+  const unknownCfgs = esphomeConfigs.filter(name => !savedNames.has(name));
 
   return (
     <div className="devices-tab">
@@ -15,12 +23,39 @@ export default function DevicesTab({ devices, esphomeStatus, esphomeUrl, onUrlCh
               spellCheck={false}
             />
             <button className="btn btn-ghost" onClick={onRefresh} title="Verbindung prüfen">↺ Prüfen</button>
+            <button
+              className="btn btn-ghost"
+              onClick={onLoadConfigs}
+              disabled={!canLoad}
+              title={canLoad ? 'Konfigurationen aus ESPHome laden' : 'ESPHome nicht erreichbar'}
+            >
+              ⬇ Von ESPHome
+            </button>
           </div>
+          {esphomeVersion && (
+            <div style={{ fontSize: 11, color: '#3fb950', marginTop: 4 }}>
+              ESPHome v{esphomeVersion}
+            </div>
+          )}
         </div>
         <div className="devices-header-right">
           <button className="btn btn-primary" onClick={onNew}>+ Neues Gerät</button>
         </div>
       </div>
+
+      {/* ESPHome configs not yet in localStorage */}
+      {unknownCfgs.length > 0 && (
+        <div className="esphome-unknown-cfgs">
+          <div className="esphome-unknown-title">
+            In ESPHome gefunden (noch nicht importiert):
+          </div>
+          <div className="esphome-unknown-list">
+            {unknownCfgs.map(name => (
+              <span key={name} className="esphome-unknown-chip">{name}</span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {devices.length === 0 ? (
         <div className="devices-empty">
@@ -35,6 +70,11 @@ export default function DevicesTab({ devices, esphomeStatus, esphomeUrl, onUrlCh
             <p style={{ color: '#f85149', fontSize: 12 }}>
               ⚠ ESPHome nicht erreichbar unter {esphomeUrl}<br />
               Prüfe ob ESPHome Add-on läuft und die URL korrekt ist.
+            </p>
+          )}
+          {esphomeStatus === 'ok' && esphomeConfigs.length === 0 && (
+            <p style={{ color: '#58a6ff', fontSize: 12 }}>
+              ESPHome verbunden · Klicke <strong>⬇ Von ESPHome</strong> um vorhandene Konfigurationen zu laden.
             </p>
           )}
         </div>

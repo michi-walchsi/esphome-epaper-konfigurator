@@ -36,8 +36,10 @@ export default function App({ hass = null }) {
   const [config,        setConfig]        = useState(INIT_CONFIG);
   const [slots,         setSlots]         = useState(INIT_SLOTS);
   const [entities,      setEntities]      = useState(DEMO_ENTITIES);
-  const [esphomeStatus, setEsphomeStatus] = useState('idle');
-  const [devices,       setDevices]       = useState(() => {
+  const [esphomeStatus,  setEsphomeStatus]  = useState('idle');
+  const [esphomeVersion, setEsphomeVersion] = useState(null);
+  const [esphomeConfigs, setEsphomeConfigs] = useState([]);
+  const [devices,        setDevices]        = useState(() => {
     try { return JSON.parse(localStorage.getItem('esphome_devices') || '[]'); }
     catch { return []; }
   });
@@ -60,11 +62,36 @@ export default function App({ hass = null }) {
   const checkEsphome = useCallback(async (url) => {
     const base = (url || config.esphomeUrl).replace(/\/$/, '');
     setEsphomeStatus('loading');
+    setEsphomeVersion(null);
     try {
-      await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000), mode: 'no-cors' });
+      // Try with CORS first (ESPHome 2023+ sets Access-Control-Allow-Origin: *)
+      const res = await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000) });
+      if (res.ok) {
+        const data = await res.json().catch(() => null);
+        setEsphomeVersion(data?.version ?? null);
+      }
       setEsphomeStatus('ok');
     } catch {
-      setEsphomeStatus('error');
+      // Fall back to no-cors connectivity probe (response body unreadable)
+      try {
+        await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000), mode: 'no-cors' });
+        setEsphomeStatus('ok');
+      } catch {
+        setEsphomeStatus('error');
+      }
+    }
+  }, [config.esphomeUrl]);
+
+  const loadEsphomeConfigs = useCallback(async () => {
+    const base = config.esphomeUrl.replace(/\/$/, '');
+    try {
+      const res = await fetch(`${base}/configurations`, { signal: AbortSignal.timeout(5000) });
+      if (res.ok) {
+        const data = await res.json().catch(() => []);
+        setEsphomeConfigs(Array.isArray(data) ? data : []);
+      }
+    } catch {
+      setEsphomeConfigs([]);
     }
   }, [config.esphomeUrl]);
 
@@ -126,7 +153,8 @@ export default function App({ hass = null }) {
           </div>
         </div>
         <div className="app-header-right">
-          <StatusBadge icon="⊡" label="ESPHome" status={esphomeStatus} />
+          <StatusBadge icon="⊡" label="ESPHome" status={esphomeStatus}
+            overrideText={esphomeVersion ? `v${esphomeVersion}` : undefined} />
           <StatusBadge icon="🏠" label="HA" status={isPanel ? 'ok' : 'demo'}
             overrideText={isPanel ? `${entities.length} Entitäten` : 'Demo-Modus'} />
           {batteryLevel !== null && <BatteryBadge level={batteryLevel} />}
@@ -156,9 +184,12 @@ export default function App({ hass = null }) {
           <DevicesTab
             devices={devices}
             esphomeStatus={esphomeStatus}
+            esphomeVersion={esphomeVersion}
+            esphomeConfigs={esphomeConfigs}
             esphomeUrl={config.esphomeUrl}
             onUrlChange={url => { setConfig(p => ({ ...p, esphomeUrl: url })); checkEsphome(url); }}
             onRefresh={() => checkEsphome()}
+            onLoadConfigs={loadEsphomeConfigs}
             onOpen={openDevice}
             onDelete={name => setDevices(prev => prev.filter(d => d.name !== name))}
             onNew={() => { setConfig(INIT_CONFIG); setSlots(INIT_SLOTS); setTab('configurator'); }}

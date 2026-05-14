@@ -219,6 +219,26 @@
 
 .devices-header-right { display: flex; gap: 8px; }
 
+/* ESPHome configs not yet imported */
+.esphome-unknown-cfgs {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  background: rgba(88,166,255,.06);
+  border: 1px solid rgba(88,166,255,.25);
+  border-radius: var(--rs);
+}
+.esphome-unknown-title { font-size: 12px; color: var(--text-2); margin-bottom: 8px; }
+.esphome-unknown-list  { display: flex; flex-wrap: wrap; gap: 6px; }
+.esphome-unknown-chip  {
+  padding: 3px 10px;
+  background: rgba(88,166,255,.12);
+  border: 1px solid rgba(88,166,255,.3);
+  border-radius: 12px;
+  font-size: 12px;
+  font-family: var(--mono);
+  color: var(--accent);
+}
+
 .btn {
   padding: 7px 14px;
   border-radius: var(--rs);
