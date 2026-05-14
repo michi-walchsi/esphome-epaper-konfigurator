@@ -13,7 +13,7 @@ function BatteryPreview({ level }) {
   );
 }
 
-export default function LivePreview({ config, slots, entities, batteryLevel }) {
+export default function LivePreview({ config, slots, entities, batteryLevel, hass }) {
   const { display, title, gridCols } = config;
   const { width, height } = display;
 
@@ -24,24 +24,30 @@ export default function LivePreview({ config, slots, entities, batteryLevel }) {
   const layout  = useMemo(() => layoutSlots(slots, gridCols), [slots, gridCols]);
   const maxRows = useMemo(() => getMaxRows(layout),            [layout]);
 
-  // Build entity state lookup map
+  // Fallback entity map for demo mode (no hass)
   const entityMap = useMemo(() => {
     const map = {};
     for (const e of entities) map[e.entity_id] = e;
     return map;
   }, [entities]);
 
+  const isLive = Boolean(hass?.states && Object.keys(hass.states).length > 0);
+
+  function getEntityData(entityId) {
+    if (!entityId) return null;
+    // Prefer live hass.states for real-time values
+    if (hass?.states?.[entityId]) return hass.states[entityId];
+    return entityMap[entityId] ?? null;
+  }
+
   const headerPct = 13;
-  const isLive    = entities.length > 0 && entities !== entities; // always true but keeps intent
 
   return (
     <div className="preview-wrapper">
       <div className="preview-label">
         <span>Live-Vorschau</span>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {entities.some(e => e.entity_id.startsWith('sensor.temperature')) && entities[0]?.state !== '--' && (
-            <span className="preview-live-badge">● Live</span>
-          )}
+          {isLive && <span className="preview-live-badge">● Live</span>}
           <span className="preview-res">{width} × {height}</span>
         </div>
       </div>
@@ -66,10 +72,17 @@ export default function LivePreview({ config, slots, entities, batteryLevel }) {
           }}
         >
           {layout.map(({ slot, size, col, row }) => {
-            const entity = slot.entityId ? entityMap[slot.entityId] : null;
-            const state  = entity?.state ?? null;
-            const unit   = entity?.attributes?.unit_of_measurement || slot.unit || '';
+            const entity    = getEntityData(slot.entityId);
+            const state     = entity?.state ?? null;
+            const unit      = slot.unit || entity?.attributes?.unit_of_measurement || '';
+            const hasEntity = Boolean(slot.entityId);
             const isNumeric = state !== null && !isNaN(parseFloat(state));
+
+            // Title: manual > friendly_name from HA > entity id short form > fallback
+            const displayTitle = slot.title
+              || entity?.attributes?.friendly_name
+              || (slot.entityId ? slot.entityId.split('.')[1]?.replace(/_/g, ' ') : null)
+              || '—';
 
             return (
               <div
@@ -80,9 +93,9 @@ export default function LivePreview({ config, slots, entities, batteryLevel }) {
                   gridRow:    `${row + 1} / span ${size.rows}`,
                 }}
               >
-                <div className="preview-slot-title">{slot.title || '—'}</div>
+                <div className="preview-slot-title">{displayTitle}</div>
 
-                {slot.entityId ? (
+                {hasEntity ? (
                   <>
                     {state !== null ? (
                       <div className="preview-slot-value">

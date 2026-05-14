@@ -6,19 +6,19 @@ import SlotEditor   from './SlotEditor';
 import FlashButton  from './FlashButton';
 
 export default function ConfiguratorTab({
-  config, slots, entities, batteryLevel, isPanel, esphomeUrl, yaml, onChange, onSlotsChange, onSave,
+  config, slots, entities, batteryLevel, isPanel, hass, esphomeUrl, yaml, onChange, onSlotsChange, onSave,
 }) {
   const [battPickerOpen, setBattPickerOpen] = useState(false);
   const set    = (key, val) => onChange(p => ({ ...p, [key]: val }));
   const setPin = (k, val)   => onChange(p => ({ ...p, spiPins: { ...p.spiPins, [k]: val } }));
 
-  const isLilygo   = config.display.platform === 'lilygo_t5_47';
-  const isCustom    = config.display.isCustom;
+  const isLilygo = config.display.platform === 'lilygo_t5_47';
+  const isCustom  = config.display.isCustom;
 
   return (
     <div className="configurator-layout">
 
-      {/* ── Left: Config ── */}
+      {/* ── Left: Config + Slots ── */}
       <div className="config-column">
         <div className="config-scroll">
 
@@ -158,6 +158,11 @@ export default function ConfiguratorTab({
             </p>
           </div>
 
+          {/* ── Slots ── */}
+          <div className="section-card slot-card">
+            <SlotEditor slots={slots} onChange={onSlotsChange} entities={entities} />
+          </div>
+
           {/* ── Flash ── */}
           <div className="section-card">
             <div className="section-title">Auf Gerät installieren</div>
@@ -170,14 +175,9 @@ export default function ConfiguratorTab({
         </div>
       </div>
 
-      {/* ── Right: Preview + Slots ── */}
+      {/* ── Right: Live-Vorschau ── */}
       <div className="preview-column">
-        <div className="preview-area">
-          <LivePreview config={config} slots={slots} entities={entities} batteryLevel={batteryLevel} />
-        </div>
-        <div className="slot-area">
-          <SlotEditor slots={slots} onChange={onSlotsChange} entities={entities} />
-        </div>
+        <LivePreview config={config} slots={slots} entities={entities} batteryLevel={batteryLevel} hass={hass} />
       </div>
 
     </div>

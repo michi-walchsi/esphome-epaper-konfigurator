@@ -250,6 +250,7 @@ export default function App({ hass = null }) {
             entities={entities}
             batteryLevel={batteryLevel}
             isPanel={isPanel}
+            hass={hass}
             esphomeUrl={config.esphomeUrl}
             yaml={yaml}
             onChange={setConfig}
