@@ -27,15 +27,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except RuntimeError:
         pass  # already registered on a previous setup
 
-    await async_register_panel(
-        hass,
-        webcomponent_name="esphome-epaper-panel",
-        frontend_url_path=PANEL_URL,
-        module_url=f"{STATIC_PATH}/panel.js",
-        sidebar_title="ESPHome Konfigurator",
-        sidebar_icon="mdi:chip",
-        require_admin=False,
-    )
+    try:
+        await async_register_panel(
+            hass,
+            webcomponent_name="esphome-epaper-panel",
+            frontend_url_path=PANEL_URL,
+            module_url=f"{STATIC_PATH}/panel.js",
+            sidebar_title="ESPHome Konfigurator",
+            sidebar_icon="mdi:chip",
+            require_admin=False,
+        )
+    except ValueError:
+        pass  # panel already registered from a previous setup
 
     _LOGGER.info("ESPHome ePaper Konfigurator Panel registriert")
     return True
