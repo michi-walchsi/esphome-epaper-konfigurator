@@ -10,6 +10,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { SLOT_SIZES } from '../utils/displays';
 import EntityPicker from './EntityPicker';
+import { IcoGrid, IcoX, IcoChevDown, IcoChevUp, IcoPlus } from './Icons';
 
 function SortableSlot({ slot, index, onUpdate, onDelete, entities }) {
   const [open,        setOpen]        = useState(false);
@@ -34,14 +35,16 @@ function SortableSlot({ slot, index, onUpdate, onDelete, entities }) {
   return (
     <div ref={setNodeRef} style={style} className={`slot-item${isDragging ? ' dragging' : ''}`}>
       <div className="slot-header">
-        <span className="slot-drag" {...attributes} {...listeners}>⠿⠿</span>
+        <span className="slot-drag" {...attributes} {...listeners} aria-label="Ziehen zum Sortieren" title="Ziehen zum Sortieren">⠿⠿</span>
         <span className="slot-num">#{index + 1}</span>
         <button className="slot-toggle" onClick={() => setOpen(o => !o)}>
           <span className="slot-toggle-name">{slot.title || `Slot ${index + 1}`}</span>
           <span className="slot-size-badge">{sizeLabel}</span>
-          <span className="slot-chevron">{open ? '▲' : '▼'}</span>
+          {open ? <IcoChevUp size={11} className="slot-chevron" /> : <IcoChevDown size={11} className="slot-chevron" />}
         </button>
-        <button className="slot-delete" onClick={() => onDelete(slot.id)}>✕</button>
+        <button className="slot-delete" onClick={() => onDelete(slot.id)} aria-label="Slot löschen" title="Slot löschen">
+          <IcoX size={13} />
+        </button>
       </div>
 
       {open && (
@@ -54,7 +57,9 @@ function SortableSlot({ slot, index, onUpdate, onDelete, entities }) {
             <label>HA Entity ID</label>
             <div className="entity-input-row">
               <input value={slot.entityId} onChange={e => onUpdate(slot.id, 'entityId', e.target.value)} placeholder="sensor.temperature" />
-              <button className="entity-pick-btn" onClick={() => setPickerOpen(true)} title="Entity auswählen">⊞</button>
+              <button className="entity-pick-btn" onClick={() => setPickerOpen(true)} aria-label="Entity auswählen" title="Entity auswählen">
+                <IcoGrid size={14} />
+              </button>
             </div>
           </div>
           <div className="form-group">
@@ -114,7 +119,9 @@ export default function SlotEditor({ slots, onChange, entities }) {
     <div className="slot-editor">
       <div className="slot-editor-header">
         <div className="slot-editor-title">Slots ({slots.length}/16)</div>
-        <button className="add-slot-btn" onClick={addSlot} disabled={slots.length >= 16}>+ Slot</button>
+        <button className="add-slot-btn btn-icon-text" onClick={addSlot} disabled={slots.length >= 16}>
+          <IcoPlus size={12} /> Slot
+        </button>
       </div>
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
@@ -128,7 +135,7 @@ export default function SlotEditor({ slots, onChange, entities }) {
       </DndContext>
 
       {slots.length === 0 && (
-        <div className="slot-empty">Noch keine Slots — klicke auf "+ Slot"</div>
+        <div className="slot-empty">Noch keine Slots — klicke auf &ldquo;+ Slot&rdquo;</div>
       )}
     </div>
   );

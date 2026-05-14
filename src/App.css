@@ -62,7 +62,7 @@
   flex-shrink: 0;
 }
 .app-header-left  { display: flex; align-items: center; gap: 10px; }
-.app-icon         { font-size: 24px; line-height: 1; }
+.app-logo         { color: var(--accent); flex-shrink: 0; }
 .app-title        { font-size: 15px; font-weight: 700; color: var(--text-1); }
 .app-sub          { font-size: 11px; color: var(--text-2); }
 .app-header-right { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
@@ -108,7 +108,7 @@
 .app-tab {
   flex: 1;
   max-width: 180px;
-  padding: 11px 16px;
+  padding: 10px 16px;
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
@@ -117,9 +117,14 @@
   font-weight: 500;
   cursor: pointer;
   transition: all .15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 .app-tab:hover  { color: var(--text-1); background: var(--bg-2); }
 .app-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.app-tab-icon   { flex-shrink: 0; }
 
 /* ── Content Area ────────────────────────────────────────── */
 .app-content { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
@@ -272,6 +277,9 @@
   cursor: pointer;
   transition: all .15s;
   border: 1px solid;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
 }
 .btn-primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 .btn-primary:hover { background: var(--accent); color: var(--bg-0); }
@@ -279,6 +287,8 @@
 .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
 .btn-danger  { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
 .btn-danger:hover { background: var(--danger); color: #fff; }
+.btn-icon       { padding: 7px; }
+.btn-icon-text  { display: inline-flex; align-items: center; gap: 5px; }
 
 .devices-empty {
   text-align: center;
@@ -442,6 +452,7 @@
   background: var(--accent-dim); border: 1px solid var(--accent);
   border-radius: var(--rs); color: var(--accent); font-size: 12px; font-weight: 700;
   cursor: pointer; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 4px;
 }
 .add-slot-btn:hover:not(:disabled) { background: var(--accent); color: var(--bg-0); }
 .add-slot-btn:disabled { opacity: .4; cursor: not-allowed; }
@@ -470,11 +481,12 @@
 }
 .slot-toggle-name  { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 .slot-size-badge   { font-size: 10px; padding: 2px 7px; background: var(--bg-0); border: 1px solid var(--border); border-radius: 10px; color: var(--text-2); white-space: nowrap; flex-shrink: 0; }
-.slot-chevron      { color: var(--text-3); font-size: 10px; flex-shrink: 0; }
+.slot-chevron      { color: var(--text-3); flex-shrink: 0; }
 .slot-delete {
   background: none; border: none; color: var(--text-3); cursor: pointer;
-  padding: 4px 7px; border-radius: var(--rs); font-size: 13px; font-weight: 700;
+  padding: 5px 7px; border-radius: var(--rs);
   transition: all .15s; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
 }
 .slot-delete:hover { background: var(--danger-dim); color: var(--danger); }
 .slot-body { padding: 12px; border-top: 1px solid var(--border); background: var(--bg-1); }
@@ -515,14 +527,23 @@
   padding: 8px 12px; background: rgba(210,153,34,.1); border: 1px solid rgba(210,153,34,.35);
   border-radius: var(--rs); color: var(--warning); font-size: 12px;
 }
+.flash-progress {
+  height: 3px; background: var(--bg-2); border-radius: 2px; overflow: hidden;
+}
+.flash-progress-bar {
+  height: 100%; border-radius: 2px; transition: width .4s ease;
+}
 .flash-btn {
-  width: 100%; padding: 12px; font-size: 15px; font-weight: 700;
+  width: 100%; padding: 11px; font-size: 14px; font-weight: 700;
   background: var(--accent-dim); border: 1px solid var(--accent);
   border-radius: var(--r); color: var(--accent); cursor: pointer;
   transition: all .2s; letter-spacing: .2px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
 }
 .flash-btn:hover:not(:disabled) { background: var(--accent); color: var(--bg-0); }
 .flash-btn:disabled { opacity: .6; cursor: not-allowed; }
+.flash-btn.done  { background: rgba(63,185,80,.12); border-color: var(--success); color: var(--success); }
+.flash-btn.error { background: var(--danger-dim); border-color: var(--danger); color: var(--danger); }
 .flash-log {
   background: var(--bg-0); border: 1px solid var(--border); border-radius: var(--rs);
   padding: 10px; font-family: var(--mono); font-size: 11px; color: var(--text-2);
@@ -536,20 +557,36 @@
   display: flex; justify-content: space-between; align-items: center;
   flex-shrink: 0;
 }
-.yaml-filename { font-family: var(--mono); font-size: 13px; color: var(--text-2); }
+.yaml-filename {
+  font-family: var(--mono); font-size: 13px; color: var(--text-2);
+  display: flex; align-items: center;
+}
 .yaml-actions  { display: flex; gap: 7px; }
 .yaml-btn {
   padding: 6px 12px; background: var(--bg-2); border: 1px solid var(--border);
   border-radius: var(--rs); color: var(--text-1); font-size: 12px; font-weight: 600;
   cursor: pointer; transition: all .15s;
+  display: inline-flex; align-items: center; gap: 5px;
 }
 .yaml-btn:hover { border-color: var(--accent); color: var(--accent); }
 .yaml-btn.primary { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
 .yaml-btn.primary:hover { background: var(--accent); color: var(--bg-0); }
 .yaml-code {
   flex: 1; background: var(--bg-0); border: 1px solid var(--border); border-radius: var(--r);
-  padding: 14px; font-family: var(--mono); font-size: 12px; color: var(--text-1);
-  overflow-y: auto; white-space: pre; line-height: 1.7; tab-size: 2;
+  padding: 12px 14px; font-family: var(--mono); font-size: 12px; color: var(--text-1);
+  overflow-y: auto; line-height: 1.7; tab-size: 2;
+}
+.yaml-ln {
+  display: inline-block;
+  min-width: 38px;
+  padding-right: 14px;
+  color: var(--text-3);
+  text-align: right;
+  user-select: none;
+  border-right: 1px solid var(--border);
+  margin-right: 14px;
+  flex-shrink: 0;
+  font-size: 11px;
 }
 
 /* ── Entity Picker Modal ──────────────────────────────────── */

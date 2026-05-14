@@ -1,3 +1,5 @@
+import { IcoMonitor, IcoRefresh, IcoDownload, IcoPlus, IcoPencil, IcoTrash } from './Icons';
+
 export default function DevicesTab({
   devices, esphomeStatus, esphomeVersion, esphomeConfigs,
   esphomeUrl, onUrlChange, onRefresh, onLoadConfigs, onOpen, onDelete, onNew,
@@ -5,7 +7,6 @@ export default function DevicesTab({
   const dotColor = { idle: '#484f58', loading: '#d29922', ok: '#3fb950', error: '#f85149' }[esphomeStatus] ?? '#484f58';
   const canLoad  = esphomeStatus === 'ok';
 
-  // Configs present in ESPHome but not yet saved locally
   const savedNames  = new Set(devices.map(d => d.name));
   const unknownCfgs = esphomeConfigs.filter(name => !savedNames.has(name));
 
@@ -13,7 +14,7 @@ export default function DevicesTab({
     <div className="devices-tab">
       <div className="devices-header">
         <div className="devices-header-left">
-          <h2>🖥 Geräte</h2>
+          <h2>Geräte</h2>
           <div className="esphome-url-row">
             <span className="esphome-conn-dot" style={{ color: dotColor }}>●</span>
             <input
@@ -21,15 +22,18 @@ export default function DevicesTab({
               onChange={e => onUrlChange(e.target.value)}
               placeholder="http://homeassistant.local:6052"
               spellCheck={false}
+              aria-label="ESPHome URL"
             />
-            <button className="btn btn-ghost" onClick={onRefresh} title="Verbindung prüfen">↺ Prüfen</button>
+            <button className="btn btn-ghost btn-icon-text" onClick={onRefresh} title="Verbindung prüfen">
+              <IcoRefresh size={13} /> Prüfen
+            </button>
             <button
-              className="btn btn-ghost"
+              className="btn btn-ghost btn-icon-text"
               onClick={onLoadConfigs}
               disabled={!canLoad}
               title={canLoad ? 'Konfigurationen aus ESPHome laden' : 'ESPHome nicht erreichbar'}
             >
-              ⬇ Von ESPHome
+              <IcoDownload size={13} /> Von ESPHome
             </button>
           </div>
           {esphomeVersion && (
@@ -39,11 +43,12 @@ export default function DevicesTab({
           )}
         </div>
         <div className="devices-header-right">
-          <button className="btn btn-primary" onClick={onNew}>+ Neues Gerät</button>
+          <button className="btn btn-primary btn-icon-text" onClick={onNew}>
+            <IcoPlus size={14} /> Neues Gerät
+          </button>
         </div>
       </div>
 
-      {/* ESPHome configs not yet in localStorage */}
       {unknownCfgs.length > 0 && (
         <div className="esphome-unknown-cfgs">
           <div className="esphome-unknown-title">
@@ -59,7 +64,9 @@ export default function DevicesTab({
 
       {devices.length === 0 ? (
         <div className="devices-empty">
-          <div className="devices-empty-icon">🖥</div>
+          <div className="devices-empty-icon">
+            <IcoMonitor size={52} style={{ opacity: 0.15 }} />
+          </div>
           <h3>Noch keine Geräte konfiguriert</h3>
           <p>
             Klicke auf <strong>+ Neues Gerät</strong> um ein e-Paper Display zu konfigurieren.<br />
@@ -68,13 +75,13 @@ export default function DevicesTab({
           <br />
           {esphomeStatus === 'error' && (
             <p style={{ color: '#f85149', fontSize: 12 }}>
-              ⚠ ESPHome nicht erreichbar unter {esphomeUrl}<br />
+              ESPHome nicht erreichbar unter {esphomeUrl}<br />
               Prüfe ob ESPHome Add-on läuft und die URL korrekt ist.
             </p>
           )}
           {esphomeStatus === 'ok' && esphomeConfigs.length === 0 && (
             <p style={{ color: '#58a6ff', fontSize: 12 }}>
-              ESPHome verbunden · Klicke <strong>⬇ Von ESPHome</strong> um vorhandene Konfigurationen zu laden.
+              ESPHome verbunden · Klicke <strong>Von ESPHome</strong> um vorhandene Konfigurationen zu laden.
             </p>
           )}
         </div>
@@ -102,7 +109,7 @@ function DeviceCard({ device, onOpen, onDelete }) {
   const isOffline    = device.status === 'offline';
   const hasDeepSleep = !isOffline && (device.config?.deepSleep ?? 0) > 0;
   const statusClass  = isOffline ? 'offline' : hasDeepSleep ? 'sleep' : 'online';
-  const statusLabel  = isOffline ? '⚠ Offline' : hasDeepSleep ? '💤 Deep Sleep' : '● Online';
+  const statusLabel  = isOffline ? 'Offline' : hasDeepSleep ? 'Deep Sleep' : 'Online';
 
   return (
     <div className="device-card" onClick={onOpen}>
@@ -123,6 +130,12 @@ function DeviceCard({ device, onOpen, onDelete }) {
           <span className="device-meta-label">Gespeichert: </span>
           {savedAt}
         </div>
+        {device.slots?.length > 0 && (
+          <div className="device-meta-item">
+            <span className="device-meta-label">Slots: </span>
+            {device.slots.length}
+          </div>
+        )}
         {device.config?.batteryEntityId && (
           <div className="device-meta-item">
             <span className="device-meta-label">Batterie: </span>
@@ -132,8 +145,12 @@ function DeviceCard({ device, onOpen, onDelete }) {
       </div>
 
       <div className="device-card-actions" onClick={e => e.stopPropagation()}>
-        <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onOpen}>⚙ Bearbeiten</button>
-        <button className="btn btn-danger" onClick={onDelete}>✕</button>
+        <button className="btn btn-ghost btn-icon-text" style={{ flex: 1 }} onClick={onOpen}>
+          <IcoPencil size={13} /> Bearbeiten
+        </button>
+        <button className="btn btn-danger btn-icon" onClick={onDelete} aria-label="Gerät löschen" title="Gerät löschen">
+          <IcoTrash size={14} />
+        </button>
       </div>
     </div>
   );

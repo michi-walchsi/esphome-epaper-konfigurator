@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { IcoFile, IcoCopy, IcoCheck, IcoDownload } from './Icons';
 
 export default function YamlTab({ yaml, deviceName }) {
   const [copied, setCopied] = useState(false);
@@ -26,12 +27,19 @@ export default function YamlTab({ yaml, deviceName }) {
   return (
     <div className="yaml-tab">
       <div className="yaml-toolbar">
-        <span className="yaml-filename">📄 {deviceName || 'esphome'}.yaml</span>
+        <span className="yaml-filename">
+          <IcoFile size={13} style={{ verticalAlign: 'middle', marginRight: 5 }} />
+          {deviceName || 'esphome'}.yaml
+        </span>
         <div className="yaml-actions">
           <button className="yaml-btn" onClick={copy}>
-            {copied ? '✓ Kopiert!' : '📋 Kopieren'}
+            {copied
+              ? <><IcoCheck size={13} style={{ verticalAlign: 'middle' }} /> Kopiert!</>
+              : <><IcoCopy size={13} style={{ verticalAlign: 'middle' }} /> Kopieren</>}
           </button>
-          <button className="yaml-btn primary" onClick={download}>⬇ Download</button>
+          <button className="yaml-btn primary" onClick={download}>
+            <IcoDownload size={13} style={{ verticalAlign: 'middle' }} /> Download
+          </button>
         </div>
       </div>
       <pre className="yaml-code">{highlightLines(yaml)}</pre>
@@ -44,16 +52,21 @@ function highlightLines(text) {
   return text.split('\n').map((line, i) => {
     const trimmed = line.trimStart();
     let color;
-    if (trimmed.startsWith('#'))                       color = '#8b949e'; // Kommentar
-    else if (/^[a-z_]+:/.test(trimmed))                color = '#79c0ff'; // Schlüssel
-    else if (/^\s*-\s*platform:\s/.test(line))         color = '#a371f7'; // platform
-    else if (/^\s*-\s*file:\s/.test(line))             color = '#a371f7'; // file
-    else if (/^\s*-\s*id:\s/.test(line))               color = '#ffa657'; // id
-    else if (/:\s*["']/.test(line))                    color = '#a5d6ff'; // Strings
-    else if (/:\s*\d/.test(line))                      color = '#79c0ff'; // Zahlen
-    else if (trimmed.startsWith('-'))                  color = '#e6edf3'; // List item
+    if (trimmed.startsWith('#'))                       color = '#8b949e';
+    else if (/^[a-z_]+:/.test(trimmed))                color = '#79c0ff';
+    else if (/^\s*-\s*platform:\s/.test(line))         color = '#a371f7';
+    else if (/^\s*-\s*file:\s/.test(line))             color = '#a371f7';
+    else if (/^\s*-\s*id:\s/.test(line))               color = '#ffa657';
+    else if (/:\s*["']/.test(line))                    color = '#a5d6ff';
+    else if (/:\s*\d/.test(line))                      color = '#79c0ff';
+    else if (trimmed.startsWith('-'))                  color = '#e6edf3';
     else                                               color = '#e6edf3';
 
-    return <span key={i} style={{ color, display: 'block' }}>{line}</span>;
+    return (
+      <span key={i} style={{ display: 'flex', minHeight: '1.7em' }}>
+        <span className="yaml-ln">{i + 1}</span>
+        <span style={{ color, whiteSpace: 'pre' }}>{line || ' '}</span>
+      </span>
+    );
   });
 }

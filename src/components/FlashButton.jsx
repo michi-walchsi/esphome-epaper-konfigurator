@@ -1,14 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
+import { IcoZap, IcoSave, IcoSettings, IcoRefresh, IcoCheck, IcoAlertCircle, IcoX } from './Icons';
 
 const PHASES = {
-  idle:      { label: '🚀 Auf Gerät installieren',    busy: false },
-  saving:    { label: '💾 Speichere YAML…',            busy: true  },
-  compiling: { label: '⏳ Kompiliere…',                busy: true  },
-  linking:   { label: '⏳ Linken…',                    busy: true  },
-  flashing:  { label: '⚡ Flashe ESP…',                busy: true  },
-  rebooting: { label: '🔄 ESP startet neu…',           busy: true  },
-  done:      { label: '✅ Erfolgreich installiert!',   busy: false },
-  error:     { label: '❌ Fehler aufgetreten',          busy: false },
+  idle:      { label: 'Auf Gerät installieren',  Icon: IcoZap,         busy: false, progress: 0   },
+  saving:    { label: 'Speichere YAML…',           Icon: IcoSave,        busy: true,  progress: 10  },
+  compiling: { label: 'Kompiliere…',               Icon: IcoSettings,    busy: true,  progress: 30  },
+  linking:   { label: 'Linken…',                   Icon: IcoSettings,    busy: true,  progress: 62  },
+  flashing:  { label: 'Flashe ESP…',              Icon: IcoZap,         busy: true,  progress: 75  },
+  rebooting: { label: 'ESP startet neu…',          Icon: IcoRefresh,     busy: true,  progress: 92  },
+  done:      { label: 'Erfolgreich installiert!',  Icon: IcoCheck,       busy: false, progress: 100 },
+  error:     { label: 'Fehler aufgetreten',         Icon: IcoAlertCircle, busy: false, progress: 100 },
 };
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
@@ -37,7 +38,6 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
     setLog('');
   };
 
-  // ── Simulation mode (demo / no real ESPHome) ───────────────
   const simulateFlash = async () => {
     const name = config.deviceName || 'epaper-display';
     cancelRef.current = false;
@@ -86,7 +86,6 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
     setPhase('done');
   };
 
-  // ── Real flash via ESPHome API ─────────────────────────────
   const realFlash = async () => {
     const base = (esphomeUrl || 'http://homeassistant.local:6052').replace(/\/$/, '');
     const name = config.deviceName || 'epaper-display';
@@ -113,7 +112,6 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
       if (err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
         appendLog('✗ Verbindung zu ESPHome fehlgeschlagen.');
         appendLog('Prüfe ob ESPHome Add-on läuft und die URL korrekt ist.');
-        appendLog('Tipp: im Demo-Modus den Flash-Button im Demo-Modus nutzen.');
       } else {
         appendLog(`✗ Fehler: ${err.message}`);
       }
@@ -184,8 +182,9 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
 
   const flash = () => isDemo ? simulateFlash() : realFlash();
 
-  const { label, busy } = PHASES[phase] ?? PHASES.idle;
+  const { label, Icon, busy, progress } = PHASES[phase] ?? PHASES.idle;
   const deepSleepActive = (config.deepSleep ?? 0) > 0;
+  const progressColor = phase === 'error' ? 'var(--danger)' : phase === 'done' ? 'var(--success)' : 'var(--accent)';
 
   return (
     <div className="flash-section">
@@ -194,15 +193,26 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
       )}
       {deepSleepActive && phase === 'idle' && (
         <div className="flash-warning">
-          ⏳ Deep Sleep aktiv — Update wird beim nächsten Aufwachen installiert (OTA konfiguriert)
+          Deep Sleep aktiv — Update wird beim nächsten Aufwachen installiert (OTA konfiguriert)
         </div>
       )}
+
+      {phase !== 'idle' && (
+        <div className="flash-progress">
+          <div className="flash-progress-bar" style={{ width: `${progress}%`, background: progressColor }} />
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8 }}>
-        <button className="flash-btn" onClick={flash} disabled={busy} style={{ flex: 1 }}>
+        <button className={`flash-btn${phase === 'done' ? ' done' : phase === 'error' ? ' error' : ''}`}
+          onClick={flash} disabled={busy} style={{ flex: 1 }}>
+          <Icon size={16} style={{ flexShrink: 0 }} />
           {label}
         </button>
         {busy && (
-          <button className="btn btn-danger" onClick={cancel} title="Abbrechen" style={{ padding: '0 14px' }}>✕</button>
+          <button className="btn btn-danger btn-icon" onClick={cancel} aria-label="Abbrechen" title="Abbrechen">
+            <IcoX size={14} />
+          </button>
         )}
       </div>
       {log && (

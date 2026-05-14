@@ -4,6 +4,7 @@ import EntityPicker from './EntityPicker';
 import LivePreview  from './LivePreview';
 import SlotEditor   from './SlotEditor';
 import FlashButton  from './FlashButton';
+import { IcoSave, IcoGrid } from './Icons';
 
 export default function ConfiguratorTab({
   config, slots, entities, batteryLevel, isPanel, hass, esphomeUrl, yaml, onChange, onSlotsChange, onSave,
@@ -124,7 +125,7 @@ export default function ConfiguratorTab({
                   onChange={e => set('batteryEntityId', e.target.value)}
                   placeholder="sensor.epaper_battery"
                 />
-                <button className="entity-pick-btn" onClick={() => setBattPickerOpen(true)}>⊞</button>
+                <button className="entity-pick-btn" onClick={() => setBattPickerOpen(true)} aria-label="Entity auswählen" title="Entity auswählen"><IcoGrid size={14} /></button>
               </div>
               <span style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
                 0–20 % rot · 20–50 % gelb · 50–100 % grün
@@ -167,7 +168,7 @@ export default function ConfiguratorTab({
           <div className="section-card">
             <div className="section-title">Auf Gerät installieren</div>
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
-              <button className="btn btn-ghost" style={{ flex: 1 }} onClick={onSave}>💾 Konfiguration speichern</button>
+              <button className="btn btn-ghost btn-icon-text" style={{ flex: 1 }} onClick={onSave}><IcoSave size={14} /> Konfiguration speichern</button>
             </div>
             <FlashButton config={config} yaml={yaml} esphomeUrl={esphomeUrl} isDemo={!isPanel} />
           </div>

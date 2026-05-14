@@ -9,6 +9,7 @@ export const DOMAIN_META = {
   input_text:     { icon: '✏',  label: 'Eingabe (Text)',      color: '#79c0ff' },
   number:         { icon: '🔢', label: 'Zahlen',              color: '#a371f7' },
   weather:        { icon: '⛅', label: 'Wetter',              color: '#58a6ff' },
+  sun:            { icon: '☀',  label: 'Sonne',               color: '#f8d33a' },
   media_player:   { icon: '🎵', label: 'Mediaplayer',         color: '#a371f7' },
   cover:          { icon: '🪟', label: 'Rolläden',            color: '#d29922' },
   fan:            { icon: '💨', label: 'Lüfter',              color: '#79c0ff' },
@@ -87,7 +88,56 @@ export async function fetchHAEntities(haUrl, token) {
 
 export function getDomain(entityId) { return entityId.split('.')[0]; }
 
+const BINARY_LABELS = {
+  door:      { on: 'Offen',   off: 'Zu'      },
+  window:    { on: 'Offen',   off: 'Zu'      },
+  motion:    { on: 'Bewegung',off: 'Ruhig'   },
+  smoke:     { on: 'Alarm',   off: 'OK'      },
+  presence:  { on: 'Anwesend',off: 'Abwesend'},
+  moisture:  { on: 'Nass',    off: 'Trocken' },
+  lock:      { on: 'Offen',   off: 'Gesperrt'},
+  plug:      { on: 'An',      off: 'Aus'     },
+  power:     { on: 'An',      off: 'Aus'     },
+  occupancy: { on: 'Belegt',  off: 'Frei'    },
+  vibration: { on: 'Vibration',off: 'Ruhig'  },
+};
+
+const WEATHER_DE = {
+  sunny:          'Sonnig',
+  partlycloudy:   'Teils bewölkt',
+  'partly-cloudy':'Teils bewölkt',
+  cloudy:         'Bewölkt',
+  rainy:          'Regen',
+  pouring:        'Starkregen',
+  snowy:          'Schnee',
+  'snowy-rainy':  'Schneeregen',
+  windy:          'Windig',
+  'windy-variant':'Windig bewölkt',
+  fog:            'Nebel',
+  hail:           'Hagel',
+  lightning:      'Gewitter',
+  'lightning-rainy': 'Gewitterregen',
+  exceptional:    'Außergewöhnlich',
+};
+
+const SUN_DE = {
+  above_horizon: 'Über Horizont',
+  below_horizon: 'Unter Horizont',
+};
+
 export function formatState(entity) {
-  const unit = entity.attributes?.unit_of_measurement;
-  return unit ? `${entity.state} ${unit}` : entity.state;
+  const domain = entity.entity_id.split('.')[0];
+  const unit   = entity.attributes?.unit_of_measurement;
+  const state  = entity.state;
+
+  if (domain === 'binary_sensor') {
+    const dc     = entity.attributes?.device_class;
+    const labels = BINARY_LABELS[dc] ?? { on: 'An', off: 'Aus' };
+    return state === 'on' ? labels.on : state === 'off' ? labels.off : state;
+  }
+  if (domain === 'weather') return WEATHER_DE[state] ?? state;
+  if (domain === 'sun')     return SUN_DE[state] ?? state;
+  if (domain === 'input_boolean') return state === 'on' ? 'An' : state === 'off' ? 'Aus' : state;
+
+  return unit ? `${state} ${unit}` : state;
 }

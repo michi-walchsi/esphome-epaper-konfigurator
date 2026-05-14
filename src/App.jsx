@@ -5,6 +5,9 @@ import { generateYaml } from './utils/yamlGenerator';
 import DevicesTab      from './components/DevicesTab';
 import ConfiguratorTab from './components/ConfiguratorTab';
 import YamlTab         from './components/YamlTab';
+import {
+  IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
+} from './components/Icons';
 
 const INIT_CONFIG = {
   title:          'Mein Dashboard',
@@ -31,7 +34,6 @@ const INIT_SLOTS = [
   { id: '4', title: 'Helligkeit',       unit: 'lx',  entityId: 'sensor.illuminance',              size: 'small'  },
 ];
 
-// Demo devices shown when localStorage is empty
 const DEMO_DEVICES = [
   {
     name:        'wohnzimmer-display',
@@ -70,6 +72,12 @@ const DEMO_DEVICES = [
   },
 ];
 
+const TABS = [
+  { id: 'devices',      Icon: IcoList,     label: 'Geräte'       },
+  { id: 'configurator', Icon: IcoSettings, label: 'Konfigurator' },
+  { id: 'yaml',         Icon: IcoFile,     label: 'YAML'         },
+];
+
 export default function App({ hass = null }) {
   const [tab,           setTab]           = useState('devices');
   const [config,        setConfig]        = useState(INIT_CONFIG);
@@ -88,7 +96,6 @@ export default function App({ hass = null }) {
 
   const isPanel = hass !== null;
 
-  // Sync entities from hass prop when running as HA Panel
   useEffect(() => {
     if (!hass?.states) return;
     setEntities(
@@ -96,7 +103,6 @@ export default function App({ hass = null }) {
     );
   }, [hass]);
 
-  // Persist devices to localStorage
   useEffect(() => {
     localStorage.setItem('esphome_devices', JSON.stringify(devices));
   }, [devices]);
@@ -191,42 +197,36 @@ export default function App({ hass = null }) {
 
   return (
     <div className="app">
-      {/* ── Header ── */}
       <header className="app-header">
         <div className="app-header-left">
-          <span className="app-icon">🖥</span>
+          <IcoMonitor size={22} className="app-logo" />
           <div>
             <div className="app-title">ESPHome e-Paper Konfigurator</div>
             <div className="app-sub">HACS Custom Panel · {effectiveDisplay.width}×{effectiveDisplay.height}px</div>
           </div>
         </div>
         <div className="app-header-right">
-          <StatusBadge icon="⊡" label="ESPHome" status={esphomeStatus}
+          <StatusBadge icon={<IcoCpu size={13} />} label="ESPHome" status={esphomeStatus}
             overrideText={esphomeVersion ? `v${esphomeVersion}` : undefined} />
-          <StatusBadge icon="🏠" label="HA" status={isPanel ? 'ok' : 'demo'}
+          <StatusBadge icon={<IcoHome size={13} />} label="HA" status={isPanel ? 'ok' : 'demo'}
             overrideText={isPanel ? `${entities.length} Entitäten` : 'Demo-Modus'} />
           {batteryLevel !== null && <BatteryBadge level={batteryLevel} />}
         </div>
       </header>
 
-      {/* ── Tab Bar ── */}
       <nav className="app-tabbar">
-        {[
-          { id: 'devices',      label: '📋 Geräte'       },
-          { id: 'configurator', label: '⚙ Konfigurator'  },
-          { id: 'yaml',         label: '📄 YAML'          },
-        ].map(t => (
+        {TABS.map(({ id, Icon, label }) => (
           <button
-            key={t.id}
-            className={`app-tab${tab === t.id ? ' active' : ''}`}
-            onClick={() => setTab(t.id)}
+            key={id}
+            className={`app-tab${tab === id ? ' active' : ''}`}
+            onClick={() => setTab(id)}
           >
-            {t.label}
+            <Icon size={14} className="app-tab-icon" />
+            {label}
           </button>
         ))}
       </nav>
 
-      {/* ── Content ── */}
       <div className="app-content">
         {tab === 'devices' && (
           <DevicesTab
@@ -263,7 +263,6 @@ export default function App({ hass = null }) {
         )}
       </div>
 
-      {/* ── New Device Dialog ── */}
       {showNewDialog && (
         <NewDeviceDialog
           onConfirm={handleNewDevice}

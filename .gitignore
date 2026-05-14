@@ -22,3 +22,12 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright
+.playwright-mcp/
+test-results/
+playwright-report/
+
+# Claude Code
+.claude/
+.remember/

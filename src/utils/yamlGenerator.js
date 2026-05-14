@@ -161,7 +161,7 @@ function buildLambda(config, layout, maxRows, hasBatt) {
   lines.push(`      `);
   lines.push(`      // ── Header ──────────────────────────────────`);
   lines.push(`      it.filled_rectangle(0, 0, ${w}, ${headerH});`);
-  lines.push(`      it.printf(${pad + 4}, ${mid}, id(font_title), COLOR_OFF, TextAlign::CENTER_LEFT, "${esc(title)}");`);
+  lines.push(`      it.printf(${pad + 4}, ${mid}, id(font_title), COLOR_OFF, TextAlign::CENTER_LEFT, "${escPrintf(title)}");`);
   lines.push(`      it.strftime(${timeX}, ${mid}, id(font_small), COLOR_OFF, TextAlign::CENTER_RIGHT, "%H:%M  %d.%m.%Y", id(ha_time).now());`);
 
   if (hasBatt) {
@@ -195,11 +195,11 @@ function buildLambda(config, layout, maxRows, hasBatt) {
 
     lines.push(`      // ── Slot: ${esc(slot.title || `Slot ${sensorIdx + 1}`)} ──`);
     lines.push(`      it.rectangle(${x}, ${y}, ${sw}, ${sh});`);
-    lines.push(`      it.printf(${cx}, ${y + pad + 2}, id(${titleFont}), TextAlign::TOP_CENTER, "${esc(slot.title)}");`);
+    lines.push(`      it.printf(${cx}, ${y + pad + 2}, id(${titleFont}), TextAlign::TOP_CENTER, "${escPrintf(slot.title)}");`);
 
     if (slot.entityId) {
       sensorIdx++;
-      const unit = slot.unit ? ` ${esc(slot.unit)}` : '';
+      const unit = slot.unit ? ` ${escPrintf(slot.unit)}` : '';
       lines.push(`      if (!std::isnan(id(sensor_${sensorIdx}).state)) {`);
       lines.push(`        it.printf(${cx}, ${cy + pad}, id(${valueFont}), TextAlign::CENTER, "%.1f${unit}", id(sensor_${sensorIdx}).state);`);
       lines.push(`      } else {`);
@@ -214,3 +214,4 @@ function buildLambda(config, layout, maxRows, hasBatt) {
 
 function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
 function esc(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
+function escPrintf(s) { return esc(s).replace(/%/g, '%%'); }

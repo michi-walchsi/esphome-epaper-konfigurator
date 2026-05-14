@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { layoutSlots, getMaxRows } from '../utils/displays';
+import { formatState } from '../utils/entities';
 
 function BatteryPreview({ level }) {
   if (level === null) return null;
@@ -77,6 +78,7 @@ export default function LivePreview({ config, slots, entities, batteryLevel, has
             const unit      = slot.unit || entity?.attributes?.unit_of_measurement || '';
             const hasEntity = Boolean(slot.entityId);
             const isNumeric = state !== null && !isNaN(parseFloat(state));
+            const displayState = entity ? formatState(entity) : state;
 
             // Title: manual > friendly_name from HA > entity id short form > fallback
             const displayTitle = slot.title
@@ -100,9 +102,11 @@ export default function LivePreview({ config, slots, entities, batteryLevel, has
                     {state !== null ? (
                       <div className="preview-slot-value">
                         <span className="preview-value-num">
-                          {isNumeric ? parseFloat(state).toLocaleString('de-AT', { maximumFractionDigits: 1 }) : state}
+                          {isNumeric
+                            ? parseFloat(state).toLocaleString('de-AT', { maximumFractionDigits: 1 })
+                            : displayState}
                         </span>
-                        {unit && <span className="preview-value-unit">&thinsp;{unit}</span>}
+                        {isNumeric && unit && <span className="preview-value-unit">&thinsp;{unit}</span>}
                       </div>
                     ) : (
                       <div className="preview-slot-value">
