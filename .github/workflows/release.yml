@@ -1,0 +1,62 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Get version
+        id: version
+        run: echo "version=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "ESPHome e-Paper Konfigurator ${{ steps.version.outputs.version }}"
+          body: |
+            ## ESPHome e-Paper Konfigurator ${{ steps.version.outputs.version }}
+
+            ### Installation (HACS Lovelace Card)
+
+            1. Lade `esphome-epaper-card.js` herunter
+            2. Kopiere sie nach `/config/www/esphome-epaper-card.js`
+            3. Füge in HA → Einstellungen → Dashboards → Ressourcen hinzu:
+               - URL: `/local/esphome-epaper-card.js`
+               - Typ: JavaScript-Modul
+            4. Lovelace-Karte konfigurieren:
+               ```yaml
+               type: custom:esphome-epaper-card
+               url: http://localhost:5173
+               height: 750
+               ```
+
+            ### What's new
+            See [CHANGELOG.md](CHANGELOG.md) for details.
+          files: |
+            dist/esphome-epaper-card.js
+            dist/index.html
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
