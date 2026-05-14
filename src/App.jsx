@@ -1,26 +1,27 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import './App.css';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { DISPLAYS, BOARDS } from './utils/displays';
-import { DEMO_ENTITIES, fetchHAEntities } from './utils/entities';
+import { DEMO_ENTITIES } from './utils/entities';
 import { generateYaml } from './utils/yamlGenerator';
-import ConfigPanel from './components/ConfigPanel';
-import SlotManager from './components/SlotManager';
-import YamlPreview from './components/YamlPreview';
-import LivePreview from './components/LivePreview';
+import DevicesTab      from './components/DevicesTab';
+import ConfiguratorTab from './components/ConfiguratorTab';
+import YamlTab         from './components/YamlTab';
 
 const INIT_CONFIG = {
-  title:           'Mein Dashboard',
-  deviceName:      'epaper-display',
-  displayName:     'E-Paper Display',
-  board:           BOARDS[0],
-  display:         DISPLAYS[0],
-  customWidth:     800,
-  customHeight:    480,
-  spiPins:         { cs: 'GPIO5', dc: 'GPIO17', rst: 'GPIO16', busy: 'GPIO4', clk: 'GPIO18', mosi: 'GPIO23' },
-  deepSleep:       30,
-  updateInterval:  60,
-  gridCols:        3,
-  batteryEntityId: '',
+  title:          'Mein Dashboard',
+  deviceName:     'epaper-display',
+  displayName:    'E-Paper Display',
+  board:          BOARDS[0],
+  display:        DISPLAYS[0],
+  customWidth:    800,
+  customHeight:   480,
+  spiPins:        { cs: 'GPIO5', dc: 'GPIO17', rst: 'GPIO16', busy: 'GPIO4', clk: 'GPIO18', mosi: 'GPIO23' },
+  deepSleep:      30,
+  updateInterval: 60,
+  gridCols:       3,
+  batteryEntityId:'',
+  wifiSsid:       '',
+  wifiPassword:   '',
+  esphomeUrl:     'http://homeassistant.local:6052',
 };
 
 const INIT_SLOTS = [
@@ -30,62 +31,50 @@ const INIT_SLOTS = [
   { id: '4', title: 'Helligkeit',       unit: 'lx',  entityId: 'sensor.illuminance',              size: 'small'  },
 ];
 
-export default function App() {
-  const [config,       setConfig]       = useState(INIT_CONFIG);
-  const [slots,        setSlots]        = useState(INIT_SLOTS);
-  const [tab,          setTab]          = useState('config');
-  const [entities,     setEntities]     = useState(DEMO_ENTITIES);
-  const [haStatus,     setHaStatus]     = useState('idle'); // idle|loading|ok|error|hacs
-  const [haConnection, setHaConnection] = useState(() => ({
-    mode:  'demo',
-    url:   localStorage.getItem('ha_url')   || 'http://homeassistant.local:8123',
-    token: localStorage.getItem('ha_token') || '',
-  }));
+export default function App({ hass = null }) {
+  const [tab,           setTab]           = useState('devices');
+  const [config,        setConfig]        = useState(INIT_CONFIG);
+  const [slots,         setSlots]         = useState(INIT_SLOTS);
+  const [entities,      setEntities]      = useState(DEMO_ENTITIES);
+  const [esphomeStatus, setEsphomeStatus] = useState('idle');
+  const [devices,       setDevices]       = useState(() => {
+    try { return JSON.parse(localStorage.getItem('esphome_devices') || '[]'); }
+    catch { return []; }
+  });
 
-  // ── Signal readiness to HACS parent + receive hass states ──
+  const isPanel = hass !== null;
+
+  // Sync entities from hass prop when running as HA Panel
   useEffect(() => {
-    // Tell the parent HACS card we're ready to receive states
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'esphome-card-ready' }, '*');
-    }
-    const handler = event => {
-      if (event.data?.type === 'hass-states') {
-        const list = Object.values(event.data.states)
-          .sort((a, b) => a.entity_id.localeCompare(b.entity_id));
-        setEntities(list);
-        setHaConnection(p => ({ ...p, mode: 'ha' }));
-        setHaStatus('hacs');
-      }
-    };
-    window.addEventListener('message', handler);
-    return () => window.removeEventListener('message', handler);
-  }, []);
+    if (!hass?.states) return;
+    setEntities(
+      Object.values(hass.states).sort((a, b) => a.entity_id.localeCompare(b.entity_id))
+    );
+  }, [hass]);
 
-  const connectToHA = useCallback(async () => {
-    if (!haConnection.url || !haConnection.token) return;
-    setHaStatus('loading');
+  // Persist devices to localStorage
+  useEffect(() => {
+    localStorage.setItem('esphome_devices', JSON.stringify(devices));
+  }, [devices]);
+
+  const checkEsphome = useCallback(async (url) => {
+    const base = (url || config.esphomeUrl).replace(/\/$/, '');
+    setEsphomeStatus('loading');
     try {
-      const data = await fetchHAEntities(haConnection.url, haConnection.token);
-      setEntities(data.sort((a, b) => a.entity_id.localeCompare(b.entity_id)));
-      setHaStatus('ok');
-      setHaConnection(p => ({ ...p, mode: 'ha' }));
-      localStorage.setItem('ha_url',   haConnection.url);
-      localStorage.setItem('ha_token', haConnection.token);
+      await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000), mode: 'no-cors' });
+      setEsphomeStatus('ok');
     } catch {
-      setHaStatus('error');
+      setEsphomeStatus('error');
     }
-  }, [haConnection.url, haConnection.token]);
+  }, [config.esphomeUrl]);
 
-  const switchToDemo = useCallback(() => {
-    setEntities(DEMO_ENTITIES);
-    setHaStatus('idle');
-    setHaConnection(p => ({ ...p, mode: 'demo' }));
-  }, []);
+  useEffect(() => { checkEsphome(); }, []);
 
-  const effectiveDisplay = useMemo(() => config.display.isCustom
-    ? { ...config.display, width: config.customWidth, height: config.customHeight }
-    : config.display,
-    [config.display, config.customWidth, config.customHeight]
+  const effectiveDisplay = useMemo(() =>
+    config.display.isCustom
+      ? { ...config.display, width: config.customWidth, height: config.customHeight }
+      : config.display,
+    [config]
   );
 
   const effectiveConfig = useMemo(
@@ -95,7 +84,6 @@ export default function App() {
 
   const yaml = useMemo(() => generateYaml(effectiveConfig, slots), [effectiveConfig, slots]);
 
-  // ── Battery value from entities ──
   const batteryLevel = useMemo(() => {
     if (!config.batteryEntityId) return null;
     const e = entities.find(en => en.entity_id === config.batteryEntityId);
@@ -103,87 +91,122 @@ export default function App() {
     return isNaN(v) ? null : v;
   }, [config.batteryEntityId, entities]);
 
+  const openDevice = useCallback((device) => {
+    if (device.config) setConfig(p => ({ ...p, ...device.config }));
+    if (device.slots)  setSlots(device.slots);
+    setTab('configurator');
+  }, []);
+
+  const saveDevice = useCallback(() => {
+    const device = {
+      name:       config.deviceName,
+      displayName: config.displayName,
+      board:      config.board.name,
+      display:    config.display.name,
+      ip:         '',
+      savedAt:    Date.now(),
+      config:     { ...config },
+      slots:      slots,
+    };
+    setDevices(prev => {
+      const filtered = prev.filter(d => d.name !== device.name);
+      return [device, ...filtered];
+    });
+  }, [config, slots]);
+
   return (
     <div className="app">
       {/* ── Header ── */}
       <header className="app-header">
         <div className="app-header-left">
-          <div className="app-logo">⊡</div>
+          <span className="app-icon">🖥</span>
           <div>
-            <h1>ESPHome e-Paper Konfigurator</h1>
-            <p>Visueller Dashboard-Generator · alle e-Paper Displays</p>
+            <div className="app-title">ESPHome e-Paper Konfigurator</div>
+            <div className="app-sub">HACS Custom Panel · {effectiveDisplay.width}×{effectiveDisplay.height}px</div>
           </div>
         </div>
         <div className="app-header-right">
-          {batteryLevel !== null && (
-            <BatteryIndicator level={batteryLevel} />
-          )}
-          {haStatus === 'ok' && (
-            <span className="badge badge-ha">🔗 HA · {entities.length} Entitäten</span>
-          )}
-          {haStatus === 'hacs' && (
-            <span className="badge badge-ha">🏠 HACS · {entities.length} Entitäten</span>
-          )}
-          <span className="badge badge-accent">{effectiveDisplay.width}×{effectiveDisplay.height}</span>
-          <span className="badge badge-muted">{config.board.name}</span>
+          <StatusBadge icon="⊡" label="ESPHome" status={esphomeStatus} />
+          <StatusBadge icon="🏠" label="HA" status={isPanel ? 'ok' : 'demo'}
+            overrideText={isPanel ? `${entities.length} Entitäten` : 'Demo-Modus'} />
+          {batteryLevel !== null && <BatteryBadge level={batteryLevel} />}
         </div>
       </header>
 
-      <div className="app-body">
-        {/* ── Sidebar ── */}
-        <aside className="app-sidebar">
-          <div className="tab-bar">
-            <button className={`tab-btn${tab === 'config' ? ' active' : ''}`} onClick={() => setTab('config')}>
-              Konfiguration
-            </button>
-            <button className={`tab-btn${tab === 'yaml' ? ' active' : ''}`} onClick={() => setTab('yaml')}>
-              YAML Vorschau
-            </button>
-          </div>
+      {/* ── Tab Bar ── */}
+      <nav className="app-tabbar">
+        {[
+          { id: 'devices',      label: '📋 Geräte'       },
+          { id: 'configurator', label: '⚙ Konfigurator'  },
+          { id: 'yaml',         label: '📄 YAML'          },
+        ].map(t => (
+          <button
+            key={t.id}
+            className={`app-tab${tab === t.id ? ' active' : ''}`}
+            onClick={() => setTab(t.id)}
+          >
+            {t.label}
+          </button>
+        ))}
+      </nav>
 
-          <div className="tab-content">
-            {tab === 'config' && (
-              <>
-                <ConfigPanel
-                  config={config}
-                  onChange={setConfig}
-                  entities={entities}
-                  haConnection={haConnection}
-                  setHaConnection={setHaConnection}
-                  haStatus={haStatus}
-                  onConnect={connectToHA}
-                  onDemo={switchToDemo}
-                />
-                <SlotManager slots={slots} onChange={setSlots} entities={entities} />
-              </>
-            )}
-            {tab === 'yaml' && (
-              <YamlPreview yaml={yaml} deviceName={config.deviceName} />
-            )}
-          </div>
-        </aside>
-
-        {/* ── Live Preview ── */}
-        <main className="app-preview">
-          <LivePreview
+      {/* ── Content ── */}
+      <div className="app-content">
+        {tab === 'devices' && (
+          <DevicesTab
+            devices={devices}
+            esphomeStatus={esphomeStatus}
+            esphomeUrl={config.esphomeUrl}
+            onUrlChange={url => { setConfig(p => ({ ...p, esphomeUrl: url })); checkEsphome(url); }}
+            onRefresh={() => checkEsphome()}
+            onOpen={openDevice}
+            onDelete={name => setDevices(prev => prev.filter(d => d.name !== name))}
+            onNew={() => { setConfig(INIT_CONFIG); setSlots(INIT_SLOTS); setTab('configurator'); }}
+          />
+        )}
+        {tab === 'configurator' && (
+          <ConfiguratorTab
             config={effectiveConfig}
             slots={slots}
             entities={entities}
             batteryLevel={batteryLevel}
+            isPanel={isPanel}
+            esphomeUrl={config.esphomeUrl}
+            yaml={yaml}
+            onChange={setConfig}
+            onSlotsChange={setSlots}
+            onSave={saveDevice}
           />
-        </main>
+        )}
+        {tab === 'yaml' && (
+          <YamlTab yaml={yaml} deviceName={config.deviceName} />
+        )}
       </div>
     </div>
   );
 }
 
-function BatteryIndicator({ level }) {
+function StatusBadge({ icon, label, status, overrideText }) {
+  const colors = { idle: '#484f58', loading: '#d29922', ok: '#3fb950', error: '#f85149', demo: '#58a6ff' };
+  const texts  = { idle: 'Nicht verbunden', loading: 'Verbinde…', ok: 'Verbunden', error: 'Fehler', demo: 'Demo' };
+  const color  = colors[status] ?? '#484f58';
+  const text   = overrideText ?? texts[status] ?? status;
+  return (
+    <div className="status-badge" style={{ '--sc': color }}>
+      <span className="status-icon">{icon}</span>
+      <span className="status-dot">●</span>
+      <span className="status-text">{label}: {text}</span>
+    </div>
+  );
+}
+
+function BatteryBadge({ level }) {
   const color = level < 20 ? '#f85149' : level < 50 ? '#d29922' : '#3fb950';
   return (
-    <div className="batt-indicator" style={{ '--batt-color': color, '--batt-fill': `${level}%` }}>
+    <div className="batt-badge" style={{ '--bc': color, '--bf': `${level}%` }}>
       <div className="batt-body"><div className="batt-fill" /></div>
       <div className="batt-cap" />
-      <span className="batt-pct">{Math.round(level)}%</span>
+      <span>{Math.round(level)}%</span>
     </div>
   );
 }

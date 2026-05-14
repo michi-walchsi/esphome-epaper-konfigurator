@@ -1,73 +1,102 @@
 # ESPHome e-Paper Konfigurator
 
-Visueller Konfigurator für ESPHome e-Paper Displays — für **jedes** e-Paper Display, nicht nur Waveshare 7.5".
+Visueller Konfigurator für ESPHome e-Paper Displays — direkt in der Home Assistant Seitenleiste.
+
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 
 ## Features
 
-- **7 Display-Modelle** + eigene Auflösung (Waveshare 7.5" V2, 4.2", 2.9", 1.54" · LILYGO T5 4.7" · Good Display 5.83")
-- **Flexibles Slot-System** — 1–16 Slots, Drag & Drop, Größen Small/Medium/Large/Wide
-- **Grid-Konfiguration** — 2, 3, 4 oder 5 Spalten frei wählbar
-- **Entity-Picker Modal** — alle HA-Entitäten live durchsuchbar, nach Domain gruppiert
-- **Home Assistant Verbindung** — Demo-Modus oder direkte HA-Verbindung (Long-Lived Token)
-- **Live-Vorschau** — zeigt das Display im richtigen Seitenverhältnis mit echten Werten
-- **Batterie-Status** — konfigurierbare Entity, Farbindikator, in Vorschau und YAML integriert
-- **YAML-Export** — fertiges ESPHome YAML mit Kopieren & Download
-- **HACS Lovelace Card** — einbettbar direkt in Home Assistant
+- **Geräte-Tab** — Übersicht aller konfigurierten e-Paper Geräte
+- **Konfigurator-Tab** — Visueller Editor mit Live-Vorschau im richtigen Seitenverhältnis
+- **YAML-Tab** — Fertiges ESPHome YAML mit Syntax-Highlighting, Kopieren & Download
+- **7 Display-Modelle** — Waveshare 7.5" V2, 4.2", 2.9", 1.54" · LILYGO T5 4.7" · Good Display 5.83" · Eigene Auflösung
+- **4 ESP Boards** — ESP32dev, ESP32-S3, ESP32-C3, ESP8266
+- **Entity-Picker** — Alle HA-Entitäten live durchsuchbar, nach Domain gruppiert
+- **Slot-System** — 1–16 Slots, Drag & Drop, Größen Small/Medium/Large/Wide
+- **Batterie-Status** — Farbindikator (rot/gelb/grün), in Vorschau & YAML integriert
+- **Flash-Button** — YAML direkt an ESPHome Add-on schicken & kompilieren
+- **Lokaler Betrieb** — kein externer Server, kein Internet nötig
 
-## Schnellstart
+## HACS Installation
+
+### 1. Custom Repository hinzufügen
+
+In HACS → **Custom Repositories** → URL eingeben:
+
+```
+https://github.com/michi-walchsi/esphome-epaper-konfigurator
+```
+
+Kategorie: **Integration**
+
+### 2. Integration installieren
+
+HACS → Integrationen → **ESPHome ePaper Konfigurator** → Installieren
+
+### 3. HA neu starten
+
+### 4. Integration hinzufügen
+
+**Einstellungen → Geräte & Dienste → Integration hinzufügen → ESPHome ePaper Konfigurator**
+
+### 5. Fertig ✅
+
+Der Konfigurator erscheint automatisch in der Seitenleiste mit dem 🖥-Symbol.
+
+---
+
+## Manuelle Installation
 
 ```bash
-cd esphome-konfigurator
+# Repository klonen
+git clone https://github.com/michi-walchsi/esphome-epaper-konfigurator
+
+# Node.js Abhängigkeiten installieren
+cd esphome-epaper-konfigurator
 npm install
-npm start
-```
 
-App öffnet sich unter `http://localhost:5173`
-
-## HACS Lovelace Card Installation
-
-### Schritt 1 — Card-Datei kopieren
-
-```bash
+# Panel bauen
 npm run build
-cp dist/esphome-epaper-card.js /config/www/
+
+# custom_components nach HA config kopieren
+cp -r custom_components/esphome_epaper_konfigurator /config/custom_components/
 ```
 
-### Schritt 2 — Ressource in HA registrieren
+Dann Integration über UI hinzufügen (Schritt 4 oben).
 
-**Einstellungen → Dashboards → Ressourcen → + Hinzufügen**
+---
 
-| Feld | Wert |
-|------|------|
-| URL | `/local/esphome-epaper-card.js` |
-| Typ | JavaScript-Modul |
+## Verwendung
 
-### Schritt 3 — Lovelace Dashboard konfigurieren
+### Geräte-Tab
+- Übersicht aller gespeicherten e-Paper Konfigurationen
+- ESPHome Add-on URL konfigurieren (Standard: `http://homeassistant.local:6052`)
+- **Neues Gerät** → wechselt in den Konfigurator-Tab
 
-```yaml
-type: custom:esphome-epaper-card
-url: http://localhost:5173   # URL der laufenden React-App
-height: 750
-title: ESPHome Konfigurator
-```
+### Konfigurator-Tab
 
-Wenn die App im selben Netzwerk wie HA läuft, erkennt die Card automatisch alle HA-Entitäten — kein Token nötig.
+**Links:**
+- Display-Modell & ESP Board wählen
+- SPI Pin-Belegung konfigurieren
+- Timing: Deep Sleep & Update-Intervall
+- Batterie Entity aus HA wählen (optional)
+- WiFi-Daten eingeben (optional, sonst `!secret`)
+- **Konfiguration speichern** → wird in der Geräteliste gespeichert
+- **Auf Gerät installieren** → YAML an ESPHome schicken & flashen
 
-## Home Assistant Verbindung
+**Rechts oben:** Live e-Paper Vorschau mit echten HA-Werten
 
-### Demo-Modus
-Beispiel-Entitäten aus verschiedenen Domains zum Testen.
+**Rechts unten:** Slot Editor
+- Drag & Drop zum Umsortieren
+- Entity-Picker: Klick auf ⊞ → Modal mit allen HA-Entitäten
+- Größen: Small (1×1), Medium (2×1), Large (2×2), Wide (3×1)
 
-### HA-Verbindung (direkt)
-Tab **Konfiguration → Home Assistant Verbindung → Home Assistant** wählen, URL + Long-Lived Token eingeben, **Verbinden** klicken.
+### YAML-Tab
+- Fertiges ESPHome YAML in Echtzeit generiert
+- Syntax-Highlighting
+- Kopieren & Download als `.yaml`
 
-### HACS-Modus (automatisch)
-Als HACS-Card eingebettet: alle HA-Entitäten werden automatisch übertragen — kein Token nötig.
-
-## Batterie-Status
-
-Entity ID eintragen (z.B. `sensor.epaper_battery`) — wird in der Live-Vorschau und im YAML eingebaut.
-0–20 % → rot · 20–50 % → gelb · 50–100 % → grün
+---
 
 ## Unterstützte Displays
 
@@ -81,6 +110,16 @@ Entity ID eintragen (z.B. `sensor.epaper_battery`) — wird in der Live-Vorschau
 | Good Display 5.83" | 648×480 | `5.83` |
 | Eigene Auflösung | beliebig | konfigurierbar |
 
+---
+
+## Entwicklung
+
+```bash
+npm install
+npm run dev    # Dev-Server auf http://localhost:5173
+npm run build  # Panel bauen → custom_components/.../www/panel.js
+```
+
 ## Lizenz
 
-MIT
+MIT — © 2025 michi-walchsi

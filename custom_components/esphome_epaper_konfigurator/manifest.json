@@ -1,0 +1,12 @@
+{
+  "domain": "esphome_epaper_konfigurator",
+  "name": "ESPHome ePaper Konfigurator",
+  "version": "1.0.0",
+  "codeowners": ["@michi-walchsi"],
+  "config_flow": true,
+  "documentation": "https://github.com/michi-walchsi/esphome-epaper-konfigurator",
+  "homeassistant": "2023.1.0",
+  "integration_type": "service",
+  "iot_class": "local_polling",
+  "requirements": []
+}
