@@ -10,7 +10,10 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.7.0';
+export const APP_VERSION = '1.7.1';
+
+// ESPHome add-on ingress slugs (tried as CORS-free fallback when direct URL fails)
+const ESPHOME_INGRESS_SLUGS = ['a0d7b954_esphome', 'a0d7b954_esphome_beta'];
 
 // These demo device names are removed from localStorage automatically on first load
 const LEGACY_DEMO_NAMES = new Set([
@@ -66,11 +69,10 @@ export default function App({ hass = null }) {
     setEntities(
       Object.values(hass.states).sort((a, b) => a.entity_id.localeCompare(b.entity_id))
     );
-    // ESPHome-Status via HA-Supervisor-Entity — funktioniert unabhängig von CORS/HTTPS
+    // Show installed ESPHome version from HA update entity (doesn't imply API reachability)
     const esphomeUpdate = hass.states['update.esphome_device_builder_update'];
     if (esphomeUpdate) {
       setEsphomeVersion(esphomeUpdate.attributes?.installed_version ?? null);
-      setEsphomeStatus('ok');
     }
   }, [hass]);
 
@@ -85,21 +87,42 @@ export default function App({ hass = null }) {
     }
     setEsphomeStatus('loading');
     setEsphomeVersion(null);
-    try {
-      const res = await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000) });
-      if (res.ok) {
-        const data = await res.json().catch(() => null);
-        setEsphomeVersion(data?.version ?? null);
-      }
-      setEsphomeStatus('ok');
-    } catch {
+
+    const tryVersion = async (b, timeout = 4000) => {
       try {
-        await fetch(`${base}/version`, { signal: AbortSignal.timeout(4000), mode: 'no-cors' });
-        setEsphomeStatus('ok');
+        const res = await fetch(`${b}/version`, { signal: AbortSignal.timeout(timeout) });
+        if (!res.ok) return { reachable: true, version: null };
+        const data = await res.json().catch(() => null);
+        return { reachable: true, version: data?.version ?? null };
       } catch {
-        setEsphomeStatus('error');
+        return { reachable: false, version: null };
+      }
+    };
+
+    const direct = await tryVersion(base);
+    if (direct.reachable) {
+      if (direct.version) setEsphomeVersion(direct.version);
+      setEsphomeStatus('ok');
+      return;
+    }
+
+    // Direct URL blocked (CORS/mixed-content when HA runs on HTTPS) —
+    // try HA ingress paths which are same-origin and require no CORS headers.
+    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+    if (!isLocalDev) {
+      for (const slug of ESPHOME_INGRESS_SLUGS) {
+        const ingressBase = `${window.location.origin}/api/hassio_ingress/${slug}`;
+        const ingress = await tryVersion(ingressBase, 3000);
+        if (ingress.reachable) {
+          if (ingress.version) setEsphomeVersion(ingress.version);
+          setEsphomeStatus('ok');
+          setConfig(p => ({ ...p, esphomeUrl: ingressBase }));
+          return;
+        }
       }
     }
+
+    setEsphomeStatus('error');
   }, [config.esphomeUrl]);
 
   const loadEsphomeConfigs = useCallback(async () => {
