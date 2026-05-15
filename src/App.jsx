@@ -10,7 +10,7 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.8.1';
+export const APP_VERSION = '1.8.2';
 
 
 // Voltage divider presets (multiplier = inverse of divider ratio)
@@ -112,6 +112,12 @@ export default function App({ hass = null }) {
   const loadEsphomeConfigs = useCallback(async () => {
     let base;
     try { base = validateEsphomeUrl(config.esphomeUrl); } catch { return; }
+    // Same-origin check: direct port access (e.g. :6052) is cross-origin from the HA panel
+    // and CORS headers are not present on ESPHome's API, so the fetch would fail with a console
+    // CORS error. Skip the request entirely; only works via ingress (same-origin) URL.
+    try {
+      if (new URL(base).origin !== window.location.origin) return;
+    } catch { return; }
     try {
       const res = await fetch(`${base}/configurations`, { signal: AbortSignal.timeout(5000) });
       if (res.ok) {

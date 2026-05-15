@@ -79,11 +79,20 @@ export default function DevicesTab({
               Prüfe ob ESPHome Add-on läuft und die URL korrekt ist.
             </p>
           )}
-          {esphomeStatus === 'ok' && esphomeConfigs.length === 0 && (
-            <p style={{ color: '#58a6ff', fontSize: 12 }}>
-              ESPHome verbunden · Klicke <strong>Von ESPHome</strong> um vorhandene Konfigurationen zu laden.
-            </p>
-          )}
+          {esphomeStatus === 'ok' && esphomeConfigs.length === 0 && (() => {
+            let sameOrigin = false;
+            try { sameOrigin = new URL(esphomeUrl).origin === window.location.origin; } catch {}
+            return sameOrigin ? (
+              <p style={{ color: '#58a6ff', fontSize: 12 }}>
+                ESPHome verbunden · Klicke <strong>Von ESPHome</strong> um vorhandene Konfigurationen zu laden.
+              </p>
+            ) : (
+              <p style={{ color: '#58a6ff', fontSize: 12 }}>
+                ESPHome verbunden · <strong>Von ESPHome</strong> benötigt die Ingress-URL (gleicher Origin wie HA).<br />
+                z.B. <code style={{ fontSize: 10 }}>http://homeassistant.local:8123/api/hassio_ingress/…</code>
+              </p>
+            );
+          })()}
         </div>
       ) : (
         <div className="devices-grid">
