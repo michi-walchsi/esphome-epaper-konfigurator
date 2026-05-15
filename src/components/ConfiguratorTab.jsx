@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { DISPLAYS, BOARDS } from '../utils/displays';
 import { VOLTAGE_PRESETS } from '../App';
+
+const INTERVAL_FACTOR = { s: 1, min: 60, h: 3600 };
 import EntityPicker from './EntityPicker';
 import LivePreview  from './LivePreview';
 import SlotEditor   from './SlotEditor';
@@ -101,8 +103,33 @@ export default function ConfiguratorTab({
                 <input type="number" value={config.deepSleep}      min={0}  max={1440} onChange={e => set('deepSleep',      +e.target.value)} />
               </div>
               <div className="form-group">
-                <label>Update-Intervall (s)</label>
-                <input type="number" value={config.updateInterval} min={10} max={3600} onChange={e => set('updateInterval', +e.target.value)} />
+                <label>Update-Intervall</label>
+                <div style={{ display: 'flex', gap: 6 }}>
+                  <input
+                    type="number"
+                    value={config.updateIntervalValue ?? config.updateInterval ?? 60}
+                    min={1}
+                    style={{ flex: 1 }}
+                    onChange={e => set('updateIntervalValue', Math.max(1, +e.target.value || 1))}
+                  />
+                  <div className="grid-btns" style={{ flex: 'none' }}>
+                    {['s', 'min', 'h'].map(unit => (
+                      <button
+                        key={unit}
+                        className={`grid-btn${(config.updateIntervalUnit ?? 's') === unit ? ' active' : ''}`}
+                        onClick={() => {
+                          const from = config.updateIntervalUnit ?? 's';
+                          const val  = config.updateIntervalValue ?? config.updateInterval ?? 60;
+                          const secs = val * (INTERVAL_FACTOR[from] ?? 1);
+                          const newVal = Math.max(1, Math.round(secs / (INTERVAL_FACTOR[unit] ?? 1)));
+                          onChange(p => ({ ...p, updateIntervalUnit: unit, updateIntervalValue: newVal }));
+                        }}
+                      >
+                        {unit}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
             <div className="form-group">

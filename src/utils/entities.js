@@ -77,15 +77,6 @@ export const DEMO_ENTITIES = [
   { entity_id: 'person.anna',                    state: 'not_home', attributes: { friendly_name: 'Anna' } },
 ];
 
-export async function fetchHAEntities(haUrl, token) {
-  const base = haUrl.replace(/\/$/, '');
-  const res  = await fetch(`${base}/api/states`, {
-    headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  });
-  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
-  return res.json();
-}
-
 export function getDomain(entityId) { return entityId.split('.')[0]; }
 
 const BINARY_LABELS = {

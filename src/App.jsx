@@ -10,7 +10,7 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.9.0';
+export const APP_VERSION = '1.9.1';
 
 
 // Voltage divider presets (multiplier = inverse of divider ratio)
@@ -35,9 +35,11 @@ const INIT_CONFIG = {
   customWidth:       800,
   customHeight:      480,
   spiPins:           { cs: 'GPIO5', dc: 'GPIO17', rst: 'GPIO16', busy: 'GPIO4', clk: 'GPIO18', mosi: 'GPIO23' },
-  deepSleep:         0,
-  updateInterval:    60,
-  gridCols:          3,
+  deepSleep:            0,
+  updateInterval:       60,  // legacy — kept so old saved devices still work
+  updateIntervalValue:  60,
+  updateIntervalUnit:   's', // 's' | 'min' | 'h'
+  gridCols:             3,
   // Battery: local ADC mode (batteryPresent=true) or HA entity mode (batteryEntityId)
   batteryPresent:    false,
   batteryPin:        'GPIO34',
@@ -84,8 +86,9 @@ export default function App({ hass = null }) {
         hassObj.connection.sendMessagePromise({ type: 'supervisor/api', endpoint: '/ingress/session', method: 'POST' }),
         hassObj.connection.sendMessagePromise({ type: 'supervisor/api', endpoint: '/addons',          method: 'GET'  }),
       ]);
-      if (sessRes?.session) {
-        document.cookie = `ingress_session=${sessRes.session}; path=/; SameSite=Strict`;
+      const session = String(sessRes?.session ?? '');
+      if (session && /^[A-Za-z0-9_\-+=/.]{10,400}$/.test(session)) {
+        document.cookie = `ingress_session=${session}; path=/; SameSite=Strict`;
       }
       const addon = (addonsRes?.addons ?? []).find(
         a => a.name?.toLowerCase().includes('esphome') && a.state === 'started',
@@ -216,7 +219,15 @@ export default function App({ hass = null }) {
   }, [effectiveBatteryEntityId, entities]);
 
   const openDevice = useCallback((device) => {
-    if (device.config) setConfig(p => ({ ...p, ...device.config }));
+    if (device.config) {
+      const cfg = { ...device.config };
+      // Migrate old saved devices that only have updateInterval (seconds) to new value+unit fields
+      if (cfg.updateIntervalValue === undefined && cfg.updateInterval != null) {
+        cfg.updateIntervalValue = cfg.updateInterval;
+        cfg.updateIntervalUnit  = 's';
+      }
+      setConfig(p => ({ ...p, ...cfg }));
+    }
     setSlots(device.slots ?? []);
     setTab('configurator');
   }, []);

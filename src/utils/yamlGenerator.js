@@ -1,12 +1,24 @@
 import { SLOT_SIZES, layoutSlots, getMaxRows } from './displays';
 
+const INTERVAL_FACTOR = { s: 1, min: 60, h: 3600 };
+
+function getIntervalSecs(config) {
+  if (config.updateIntervalValue != null) {
+    const factor = INTERVAL_FACTOR[config.updateIntervalUnit] ?? 1;
+    return Math.max(1, Math.round(config.updateIntervalValue * factor));
+  }
+  return config.updateInterval ?? 60;
+}
+
 export function generateYaml(config, slots) {
   const {
     display, board, title, deviceName, displayName,
-    spiPins, deepSleep, updateInterval, gridCols,
+    spiPins, deepSleep, gridCols,
     batteryEntityId, wifiSsid, wifiPassword,
     batteryPresent, batteryPin, voltageMultiplier,
   } = config;
+
+  const intervalSecs = getIntervalSecs(config);
 
   const isESP32  = board.platform === 'esp32';
   const isLilygo = display.platform === 'lilygo_t5_47';
@@ -39,7 +51,7 @@ export function generateYaml(config, slots) {
       `    unit_of_measurement: "%"\n` +
       `    device_class: battery\n` +
       `    accuracy_decimals: 0\n` +
-      `    update_interval: ${updateInterval}s\n` +
+      `    update_interval: ${intervalSecs}s\n` +
       `    filters:\n` +
       `      - multiply: ${mult}\n` +
       `      - lambda: |-\n` +
@@ -67,11 +79,11 @@ export function generateYaml(config, slots) {
 
   // ── Display block ──────────────────────────────────────
   const displayBlock = isLilygo
-    ? `  - platform: lilygo_t5_47\n    full_update_every: 1\n    update_interval: ${updateInterval}s`
+    ? `  - platform: lilygo_t5_47\n    full_update_every: 1\n    update_interval: ${intervalSecs}s`
     : `  - platform: waveshare_epaper\n    model: ${display.model}\n` +
       `    cs_pin: ${safePin(spiPins.cs)}\n    dc_pin: ${safePin(spiPins.dc)}\n` +
       `    reset_pin: ${safePin(spiPins.rst)}\n    busy_pin: ${safePin(spiPins.busy)}\n` +
-      `    update_interval: ${updateInterval}s`;
+      `    update_interval: ${intervalSecs}s`;
 
   const spiSection  = isLilygo ? '' : `spi:\n  clk_pin: ${safePin(spiPins.clk)}\n  mosi_pin: ${safePin(spiPins.mosi)}\n\n`;
   const boardBlock  = isESP32

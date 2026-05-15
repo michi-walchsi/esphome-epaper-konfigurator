@@ -190,5 +190,5 @@ test('Batterie-ADC: Eigener Wert zeigt Multiplikator-Input', async ({ page }) =>
 
   // Eigener Wert auswählen
   await page.locator('select').filter({ hasText: /FireBeetle|LOLIN|TTGO|Eigener/ }).selectOption({ value: 'custom' });
-  await expect(page.locator('input[type="number"][min="1"]')).toBeVisible();
+  await expect(page.locator('input[type="number"][min="1"][max="10"]')).toBeVisible();
 });
