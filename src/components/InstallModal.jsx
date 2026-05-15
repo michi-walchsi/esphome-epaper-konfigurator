@@ -17,7 +17,7 @@ import { validateEsphomeUrl } from '../utils/security';
  *   fetch response, never directly from user text input.
  * - External links (ESPHome login) use rel="noopener noreferrer".
  */
-export default function InstallModal({ config, esphomeUrl, deepSleepActive, onConfirm, onClose }) {
+export default function InstallModal({ config, esphomeUrl, esphomeApiBase, deepSleepActive, onConfirm, onClose }) {
   const [method,    setMethod]    = useState(null);   // 'usb' | 'ota' | null
   const [ports,     setPorts]     = useState([]);
   const [devices,   setDevices]   = useState([]);
@@ -40,8 +40,11 @@ export default function InstallModal({ config, esphomeUrl, deepSleepActive, onCo
     const timeoutId = setTimeout(() => ctrl.abort(), 5000);
     setLoading(true); setLoadError(null); setPorts([]); setSelected('');
     try {
-      const base = validateEsphomeUrl(esphomeUrl);
-      const res  = await fetch(`${base}/serial-ports`, { signal: ctrl.signal });
+      const base = esphomeApiBase || validateEsphomeUrl(esphomeUrl);
+      const res  = await fetch(`${base}/serial-ports`, {
+        signal:      ctrl.signal,
+        credentials: esphomeApiBase ? 'include' : 'same-origin',
+      });
       if (res.status === 401 || res.status === 403) {
         setLoadError({ type: 'auth', base });
         return;
@@ -73,8 +76,11 @@ export default function InstallModal({ config, esphomeUrl, deepSleepActive, onCo
     const timeoutId = setTimeout(() => ctrl.abort(), 5000);
     setLoading(true); setLoadError(null); setDevices([]); setSelected('');
     try {
-      const base = validateEsphomeUrl(esphomeUrl);
-      const res  = await fetch(`${base}/devices`, { signal: ctrl.signal });
+      const base = esphomeApiBase || validateEsphomeUrl(esphomeUrl);
+      const res  = await fetch(`${base}/devices`, {
+        signal:      ctrl.signal,
+        credentials: esphomeApiBase ? 'include' : 'same-origin',
+      });
       if (res.status === 401 || res.status === 403) {
         setLoadError({ type: 'auth', base });
         return;

@@ -16,7 +16,7 @@ const PHASES = {
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
-export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }) {
+export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, isDemo = false }) {
   const [phase,     setPhase]     = useState('idle');
   const [log,       setLog]       = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -99,12 +99,16 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
 
   // ── Real flash (panel mode) ──────────────────────────────────
   async function realFlash(method, port, configName) {
-    // 1 — Validate ESPHome URL (must be http:// or https://)
+    // 1 — Resolve API base: prefer ingress (same-origin, cookie-auth), fall back to direct URL
     let base;
-    try {
-      base = validateEsphomeUrl(esphomeUrl);
-    } catch (err) {
-      setPhase('error'); setLog(`✗ ${err.message}`); return;
+    if (esphomeApiBase) {
+      base = esphomeApiBase;
+    } else {
+      try {
+        base = validateEsphomeUrl(esphomeUrl);
+      } catch (err) {
+        setPhase('error'); setLog(`✗ ${err.message}`); return;
+      }
     }
 
     // 2 — Basic YAML sanity check before sending to ESPHome
@@ -126,10 +130,11 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
       const res = await fetch(
         `${base}/edit?configuration=${encodeURIComponent(filename)}`,
         {
-          method:  'POST',
-          headers: { 'Content-Type': 'text/plain' },
-          body:    yaml,
-          signal:  ctrl.signal,
+          method:      'POST',
+          headers:     { 'Content-Type': 'text/plain' },
+          body:        yaml,
+          signal:      ctrl.signal,
+          credentials: esphomeApiBase ? 'include' : 'same-origin',
         },
       );
       if (res.status === 401 || res.status === 403) {
@@ -278,6 +283,7 @@ export default function FlashButton({ config, yaml, esphomeUrl, isDemo = false }
         <InstallModal
           config={config}
           esphomeUrl={esphomeUrl}
+          esphomeApiBase={esphomeApiBase}
           deepSleepActive={deepSleepActive}
           onConfirm={handleInstallConfirm}
           onClose={() => setShowModal(false)}

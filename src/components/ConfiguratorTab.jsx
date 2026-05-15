@@ -8,7 +8,7 @@ import FlashButton  from './FlashButton';
 import { IcoSave, IcoGrid } from './Icons';
 
 export default function ConfiguratorTab({
-  config, slots, entities, batteryLevel, isPanel, hass, esphomeUrl, yaml, onChange, onSlotsChange, onSave,
+  config, slots, entities, batteryLevel, isPanel, hass, esphomeUrl, esphomeApiBase, yaml, onChange, onSlotsChange, onSave,
 }) {
   const [battPickerOpen, setBattPickerOpen] = useState(false);
   const set    = (key, val) => onChange(p => ({ ...p, [key]: val }));
@@ -243,7 +243,7 @@ export default function ConfiguratorTab({
             <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
               <button className="btn btn-ghost btn-icon-text" style={{ flex: 1 }} onClick={onSave}><IcoSave size={14} /> Konfiguration speichern</button>
             </div>
-            <FlashButton config={config} yaml={yaml} esphomeUrl={esphomeUrl} isDemo={!isPanel} />
+            <FlashButton config={config} yaml={yaml} esphomeUrl={esphomeUrl} esphomeApiBase={esphomeApiBase} isDemo={!isPanel} />
           </div>
 
         </div>

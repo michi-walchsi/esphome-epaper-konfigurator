@@ -10,7 +10,7 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.8.2';
+export const APP_VERSION = '1.9.0';
 
 
 // Voltage divider presets (multiplier = inverse of divider ratio)
@@ -63,6 +63,7 @@ export default function App({ hass = null }) {
   const [esphomeStatus,  setEsphomeStatus]  = useState('idle');
   const [esphomeVersion, setEsphomeVersion] = useState(null);
   const [esphomeConfigs, setEsphomeConfigs] = useState([]);
+  const [esphomeApiBase, setEsphomeApiBase] = useState(null);
   const [showNewDialog,  setShowNewDialog]  = useState(false);
   const [devices,        setDevices]        = useState(() => {
     try {
@@ -73,6 +74,31 @@ export default function App({ hass = null }) {
   });
 
   const isPanel = hass !== null;
+
+  // Resolve ESPHome ingress URL via HA Supervisor WebSocket API.
+  // Sets esphomeApiBase + ingress_session cookie so all API calls go through ingress (same-origin).
+  const resolveIngress = useCallback(async (hassObj) => {
+    if (!hassObj?.connection) return;
+    try {
+      const [sessRes, addonsRes] = await Promise.all([
+        hassObj.connection.sendMessagePromise({ type: 'supervisor/api', endpoint: '/ingress/session', method: 'POST' }),
+        hassObj.connection.sendMessagePromise({ type: 'supervisor/api', endpoint: '/addons',          method: 'GET'  }),
+      ]);
+      if (sessRes?.session) {
+        document.cookie = `ingress_session=${sessRes.session}; path=/; SameSite=Strict`;
+      }
+      const addon = (addonsRes?.addons ?? []).find(
+        a => a.name?.toLowerCase().includes('esphome') && a.state === 'started',
+      );
+      if (!addon) return;
+      const info = await hassObj.connection.sendMessagePromise({
+        type: 'supervisor/api', endpoint: `/addons/${addon.slug}/info`, method: 'GET',
+      });
+      if (info?.ingress_entry) {
+        setEsphomeApiBase(window.location.origin + info.ingress_entry);
+      }
+    } catch { /* Supervisor not available (dev mode or non-supervisor HA) */ }
+  }, []);
 
   // Load real HA entities whenever hass changes
   useEffect(() => {
@@ -85,7 +111,8 @@ export default function App({ hass = null }) {
     if (esphomeUpdate) {
       setEsphomeVersion(esphomeUpdate.attributes?.installed_version ?? null);
     }
-  }, [hass]);
+    resolveIngress(hass);
+  }, [hass, resolveIngress]);
 
   useEffect(() => {
     localStorage.setItem('esphome_devices', JSON.stringify(devices));
@@ -110,24 +137,54 @@ export default function App({ hass = null }) {
   }, [config.esphomeUrl]);
 
   const loadEsphomeConfigs = useCallback(async () => {
-    let base;
-    try { base = validateEsphomeUrl(config.esphomeUrl); } catch { return; }
-    // Same-origin check: direct port access (e.g. :6052) is cross-origin from the HA panel
-    // and CORS headers are not present on ESPHome's API, so the fetch would fail with a console
-    // CORS error. Skip the request entirely; only works via ingress (same-origin) URL.
+    if (!esphomeApiBase) return;
     try {
-      if (new URL(base).origin !== window.location.origin) return;
-    } catch { return; }
-    try {
-      const res = await fetch(`${base}/configurations`, { signal: AbortSignal.timeout(5000) });
+      const res = await fetch(`${esphomeApiBase}/devices`, {
+        signal:      AbortSignal.timeout(5000),
+        credentials: 'include',
+      });
       if (res.ok) {
-        const data = await res.json().catch(() => []);
-        setEsphomeConfigs(Array.isArray(data) ? data : []);
+        const data = await res.json().catch(() => ({}));
+        setEsphomeConfigs(
+          (data?.configured ?? [])
+            .map(d => (typeof d === 'string' ? d : d.name))
+            .filter(Boolean),
+        );
       }
     } catch {
       setEsphomeConfigs([]);
     }
-  }, [config.esphomeUrl]);
+  }, [esphomeApiBase]);
+
+  // Fetch YAML from ESPHome, extract friendly_name, open device in Konfigurator
+  const importDevice = useCallback(async (devName) => {
+    if (!esphomeApiBase) return;
+    try {
+      const res = await fetch(
+        `${esphomeApiBase}/edit?configuration=${encodeURIComponent(devName + '.yaml')}`,
+        { signal: AbortSignal.timeout(5000), credentials: 'include' },
+      );
+      if (!res.ok) return;
+      const yamlText = await res.text();
+      let friendly = '';
+      let inEsphome = false;
+      for (const line of yamlText.split('\n')) {
+        if (/^esphome:/.test(line)) { inEsphome = true; continue; }
+        if (inEsphome && /^\w/.test(line)) break;
+        if (inEsphome) {
+          const m = line.match(/^\s+friendly_name:\s*(.+)$/);
+          if (m) { friendly = m[1].trim().replace(/['"]/g, ''); break; }
+        }
+      }
+      setConfig(p => ({
+        ...p,
+        deviceName:  devName,
+        displayName: friendly || devName.replace(/-/g, ' '),
+      }));
+      setSlots([]);
+      setTab('configurator');
+    } catch { /* ignore */ }
+  }, [esphomeApiBase]);
 
   useEffect(() => { checkEsphome(); }, []);
 
@@ -234,9 +291,11 @@ export default function App({ hass = null }) {
             esphomeVersion={esphomeVersion}
             esphomeConfigs={esphomeConfigs}
             esphomeUrl={config.esphomeUrl}
+            esphomeApiBase={esphomeApiBase}
             onUrlChange={url => { setConfig(p => ({ ...p, esphomeUrl: url })); checkEsphome(url); }}
             onRefresh={() => checkEsphome()}
             onLoadConfigs={loadEsphomeConfigs}
+            onImportDevice={importDevice}
             onOpen={openDevice}
             onDelete={name => setDevices(prev => prev.filter(d => d.name !== name))}
             onNew={() => setShowNewDialog(true)}
@@ -251,6 +310,7 @@ export default function App({ hass = null }) {
             isPanel={isPanel}
             hass={hass}
             esphomeUrl={config.esphomeUrl}
+            esphomeApiBase={esphomeApiBase}
             yaml={yaml}
             onChange={setConfig}
             onSlotsChange={setSlots}

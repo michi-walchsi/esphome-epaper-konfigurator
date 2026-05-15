@@ -2,10 +2,10 @@ import { IcoMonitor, IcoRefresh, IcoDownload, IcoPlus, IcoPencil, IcoTrash } fro
 
 export default function DevicesTab({
   devices, esphomeStatus, esphomeVersion, esphomeConfigs,
-  esphomeUrl, onUrlChange, onRefresh, onLoadConfigs, onOpen, onDelete, onNew,
+  esphomeUrl, esphomeApiBase, onUrlChange, onRefresh, onLoadConfigs, onImportDevice, onOpen, onDelete, onNew,
 }) {
   const dotColor = { idle: '#484f58', loading: '#d29922', ok: '#3fb950', error: '#f85149' }[esphomeStatus] ?? '#484f58';
-  const canLoad  = esphomeStatus === 'ok';
+  const canLoad  = esphomeStatus === 'ok' && Boolean(esphomeApiBase);
 
   const savedNames  = new Set(devices.map(d => d.name));
   const unknownCfgs = esphomeConfigs.filter(name => !savedNames.has(name));
@@ -31,7 +31,7 @@ export default function DevicesTab({
               className="btn btn-ghost btn-icon-text"
               onClick={onLoadConfigs}
               disabled={!canLoad}
-              title={canLoad ? 'Konfigurationen aus ESPHome laden' : 'ESPHome nicht erreichbar'}
+              title={canLoad ? 'Konfigurationen aus ESPHome laden' : (!esphomeApiBase ? 'Ingress wird aufgelöst…' : 'ESPHome nicht erreichbar')}
             >
               <IcoDownload size={13} /> Von ESPHome
             </button>
@@ -56,7 +56,18 @@ export default function DevicesTab({
           </div>
           <div className="esphome-unknown-list">
             {unknownCfgs.map(name => (
-              <span key={name} className="esphome-unknown-chip">{name}</span>
+              <span
+                key={name}
+                className="esphome-unknown-chip"
+                onClick={() => onImportDevice?.(name)}
+                title={`${name} importieren → Konfigurator öffnen`}
+                style={{ cursor: 'pointer' }}
+                role="button"
+                tabIndex={0}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onImportDevice?.(name); }}
+              >
+                {name} →
+              </span>
             ))}
           </div>
         </div>
@@ -79,20 +90,11 @@ export default function DevicesTab({
               Prüfe ob ESPHome Add-on läuft und die URL korrekt ist.
             </p>
           )}
-          {esphomeStatus === 'ok' && esphomeConfigs.length === 0 && (() => {
-            let sameOrigin = false;
-            try { sameOrigin = new URL(esphomeUrl).origin === window.location.origin; } catch {}
-            return sameOrigin ? (
-              <p style={{ color: '#58a6ff', fontSize: 12 }}>
-                ESPHome verbunden · Klicke <strong>Von ESPHome</strong> um vorhandene Konfigurationen zu laden.
-              </p>
-            ) : (
-              <p style={{ color: '#58a6ff', fontSize: 12 }}>
-                ESPHome verbunden · <strong>Von ESPHome</strong> benötigt die Ingress-URL (gleicher Origin wie HA).<br />
-                z.B. <code style={{ fontSize: 10 }}>http://homeassistant.local:8123/api/hassio_ingress/…</code>
-              </p>
-            );
-          })()}
+          {esphomeStatus === 'ok' && esphomeConfigs.length === 0 && (
+            <p style={{ color: '#58a6ff', fontSize: 12 }}>
+              ESPHome verbunden · Klicke <strong>Von ESPHome</strong> um vorhandene Konfigurationen zu laden.
+            </p>
+          )}
         </div>
       ) : (
         <div className="devices-grid">
