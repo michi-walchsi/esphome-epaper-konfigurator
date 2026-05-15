@@ -65,6 +65,12 @@ export default function App({ hass = null }) {
     setEntities(
       Object.values(hass.states).sort((a, b) => a.entity_id.localeCompare(b.entity_id))
     );
+    // ESPHome-Status via HA-Supervisor-Entity — funktioniert unabhängig von CORS/HTTPS
+    const esphomeUpdate = hass.states['update.esphome_device_builder_update'];
+    if (esphomeUpdate) {
+      setEsphomeVersion(esphomeUpdate.attributes?.installed_version ?? null);
+      setEsphomeStatus('ok');
+    }
   }, [hass]);
 
   useEffect(() => {
