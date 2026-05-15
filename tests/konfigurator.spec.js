@@ -26,13 +26,15 @@ test('Tab-Navigation: Geräte → Konfigurator → YAML', async ({ page }) => {
   await expect(page.locator('.yaml-code')).toBeVisible();
 });
 
-test('YAML enthält !secret und keinen Klartext-Passwort-Fallback', async ({ page }) => {
+test('YAML enthält !secret wifi und keinen Klartext-Passwort-Fallback', async ({ page }) => {
   await page.getByRole('button', { name: 'YAML' }).click();
   const code = await page.locator('.yaml-code').textContent();
   expect(code).toContain('!secret wifi_ssid');
   expect(code).toContain('!secret wifi_password');
-  expect(code).toContain('!secret api_key');
-  expect(code).toContain('!secret ota_password');
+  // api und ota haben keine !secret-Referenzen mehr (vermeidet Fehler wenn secrets.yaml fehlt)
+  expect(code).not.toContain('!secret api_key');
+  expect(code).not.toContain('!secret ota_password');
+  expect(code).not.toContain('!secret ap_password');
 });
 
 test('Geräte-Tab: Leer-Zustand zeigt "Neues Gerät" Button', async ({ page }) => {

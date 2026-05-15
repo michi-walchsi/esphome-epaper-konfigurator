@@ -175,16 +175,11 @@ export function generateYaml(config, slots) {
 
   sections.push(`logger:`);
 
-  sections.push([
-    `api:`,
-    `  encryption:`,
-    `    key: !secret api_key`,
-  ].join('\n'));
+  sections.push(`api:`);
 
   sections.push([
     `ota:`,
     `  - platform: esphome`,
-    `    password: !secret ota_password`,
   ].join('\n'));
 
   if (hasDeepSleep) {
@@ -200,7 +195,6 @@ export function generateYaml(config, slots) {
     wifiCredentials,
     `  ap:`,
     `    ssid: "${yamlEsc(displayName)} Fallback"`,
-    `    password: !secret ap_password`,
   ].join('\n'));
 
   sections.push(`captive_portal:`);
