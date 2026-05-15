@@ -15,11 +15,11 @@ export function generateYaml(config, slots) {
   const hasDeepSleep = (deepSleep ?? 0) > 0;
 
   // ── Sensor section ──────────────────────────────────────
-  const sensorSlots = slots.filter(s => s.entityId);
+  const sensorSlots = slots.filter(s => safeEntityId(s.entityId));
   const sensorLines = sensorSlots.map((slot, i) =>
     `  - platform: homeassistant\n` +
     `    id: sensor_${i + 1}\n` +
-    `    entity_id: ${slot.entityId}\n` +
+    `    entity_id: ${safeEntityId(slot.entityId)}\n` +
     `    on_value:\n` +
     `      then:\n` +
     `        - component.update: epaper_display`
@@ -28,7 +28,7 @@ export function generateYaml(config, slots) {
     sensorLines.push(
       `  - platform: homeassistant\n` +
       `    id: battery_level\n` +
-      `    entity_id: ${batteryEntityId}\n` +
+      `    entity_id: ${safeEntityId(batteryEntityId)}\n` +
       `    on_value:\n` +
       `      then:\n` +
       `        - component.update: epaper_display`
@@ -42,11 +42,11 @@ export function generateYaml(config, slots) {
   const displayBlock = isLilygo
     ? `  - platform: lilygo_t5_47\n    full_update_every: 1\n    update_interval: ${updateInterval}s`
     : `  - platform: waveshare_epaper\n    model: ${display.model}\n` +
-      `    cs_pin: ${spiPins.cs}\n    dc_pin: ${spiPins.dc}\n` +
-      `    reset_pin: ${spiPins.rst}\n    busy_pin: ${spiPins.busy}\n` +
+      `    cs_pin: ${safePin(spiPins.cs)}\n    dc_pin: ${safePin(spiPins.dc)}\n` +
+      `    reset_pin: ${safePin(spiPins.rst)}\n    busy_pin: ${safePin(spiPins.busy)}\n` +
       `    update_interval: ${updateInterval}s`;
 
-  const spiSection  = isLilygo ? '' : `spi:\n  clk_pin: ${spiPins.clk}\n  mosi_pin: ${spiPins.mosi}\n\n`;
+  const spiSection  = isLilygo ? '' : `spi:\n  clk_pin: ${safePin(spiPins.clk)}\n  mosi_pin: ${safePin(spiPins.mosi)}\n\n`;
   const boardBlock  = isESP32
     ? `esp32:\n  board: ${board.id}\n  framework:\n    type: arduino`
     : `esp8266:\n  board: ${board.id}`;
@@ -83,7 +83,7 @@ export function generateYaml(config, slots) {
 
 esphome:
   name: ${deviceName}
-  friendly_name: ${displayName}
+  friendly_name: "${esc(displayName)}"
   on_boot:
     - priority: 200
       then:
@@ -215,3 +215,11 @@ function buildLambda(config, layout, maxRows, hasBatt) {
 function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
 function esc(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 function escPrintf(s) { return esc(s).replace(/%/g, '%%'); }
+// Allowlist GPIO pin names: GPIO18, IO4, A0, ESP32:GPIO0, etc.
+function safePin(pin) {
+  return /^[A-Za-z0-9_:]{1,20}$/.test(pin) ? pin : 'GPIO0';
+}
+// Allowlist HA entity IDs: domain.object_id format with safe chars only
+function safeEntityId(id) {
+  return /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(id) ? id : '';
+}

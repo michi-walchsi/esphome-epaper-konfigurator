@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { DISPLAYS, BOARDS } from './utils/displays';
 import { DEMO_ENTITIES } from './utils/entities';
 import { generateYaml } from './utils/yamlGenerator';
+import { validateEsphomeUrl } from './utils/security';
 import DevicesTab      from './components/DevicesTab';
 import ConfiguratorTab from './components/ConfiguratorTab';
 import YamlTab         from './components/YamlTab';
@@ -9,7 +10,7 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.5.0';
+export const APP_VERSION = '1.7.0';
 
 // These demo device names are removed from localStorage automatically on first load
 const LEGACY_DEMO_NAMES = new Set([
@@ -78,7 +79,10 @@ export default function App({ hass = null }) {
   }, [devices]);
 
   const checkEsphome = useCallback(async (url) => {
-    const base = (url || config.esphomeUrl).replace(/\/$/, '');
+    let base;
+    try { base = validateEsphomeUrl(url || config.esphomeUrl); } catch {
+      setEsphomeStatus('error'); return;
+    }
     setEsphomeStatus('loading');
     setEsphomeVersion(null);
     try {
@@ -99,7 +103,8 @@ export default function App({ hass = null }) {
   }, [config.esphomeUrl]);
 
   const loadEsphomeConfigs = useCallback(async () => {
-    const base = config.esphomeUrl.replace(/\/$/, '');
+    let base;
+    try { base = validateEsphomeUrl(config.esphomeUrl); } catch { return; }
     try {
       const res = await fetch(`${base}/configurations`, { signal: AbortSignal.timeout(5000) });
       if (res.ok) {
@@ -141,6 +146,8 @@ export default function App({ hass = null }) {
   }, []);
 
   const saveDevice = useCallback(() => {
+    // eslint-disable-next-line no-unused-vars
+    const { wifiPassword: _pw, ...configToSave } = config;
     const device = {
       name:        config.deviceName,
       displayName: config.displayName,
@@ -148,7 +155,7 @@ export default function App({ hass = null }) {
       display:     config.display.name,
       ip:          '',
       savedAt:     Date.now(),
-      config:      { ...config },
+      config:      configToSave,
       slots:       slots,
     };
     setDevices(prev => {

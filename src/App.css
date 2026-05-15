@@ -659,3 +659,73 @@
 .picker-entity-state { font-family: var(--mono); font-size: 13px; color: var(--accent); flex-shrink: 0; text-align: right; padding-left: 10px; font-weight: 700; }
 .picker-empty { padding: 40px 20px; text-align: center; color: var(--text-3); font-size: 13px; line-height: 1.8; }
 .picker-footer { padding: 8px 14px; border-top: 1px solid var(--border); font-size: 11px; color: var(--text-3); text-align: center; flex-shrink: 0; background: var(--bg-1); }
+
+/* ── Install Modal ────────────────────────────────────────────── */
+.install-modal {
+  background: var(--bg-1); border: 1px solid var(--border); border-radius: var(--r);
+  width: min(560px, 92vw); display: flex; flex-direction: column;
+  box-shadow: 0 32px 80px rgba(0,0,0,.7); overflow: hidden;
+}
+.install-modal-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 16px; border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.install-modal-title { font-size: 14px; font-weight: 600; color: var(--text-1); }
+.install-modal-body  { padding: 16px; display: flex; flex-direction: column; gap: 14px; overflow-y: auto; }
+.install-modal-footer {
+  display: flex; justify-content: flex-end; gap: 8px;
+  padding: 12px 16px; border-top: 1px solid var(--border); flex-shrink: 0;
+}
+
+/* Method cards */
+.install-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.install-option {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px; border-radius: var(--r);
+  border: 1px solid var(--border); background: var(--bg-2);
+  cursor: pointer; text-align: left; transition: border-color .15s, background .15s;
+  color: var(--text-1);
+}
+.install-option:hover  { border-color: var(--accent); background: var(--bg-3); }
+.install-option.active { border-color: var(--accent); background: var(--accent-dim); }
+.install-option-icon   { font-size: 22px; flex-shrink: 0; margin-top: 1px; }
+.install-option-title  { font-size: 13px; font-weight: 600; margin-bottom: 3px; }
+.install-option-desc   { font-size: 11px; color: var(--text-2); line-height: 1.5; }
+
+/* Step content */
+.install-step      { display: flex; flex-direction: column; gap: 10px; }
+.install-warning   { font-size: 12px; color: var(--warning); background: rgba(210,153,34,.1); border: 1px solid rgba(210,153,34,.25); border-radius: var(--rs); padding: 8px 10px; line-height: 1.5; }
+.install-info      { font-size: 12px; color: var(--text-2); background: var(--bg-2); border: 1px solid var(--border); border-radius: var(--rs); padding: 8px 10px; }
+.install-config-info { font-size: 12px; color: var(--text-2); }
+.install-config-info code { font-family: var(--mono); font-size: 11px; color: var(--accent); }
+.install-empty     { font-size: 12px; color: var(--text-3); padding: 6px 0; }
+.install-loading   { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-2); padding: 4px 0; }
+.install-error     { display: flex; align-items: baseline; gap: 5px; font-size: 12px; color: var(--danger); background: var(--danger-dim); border: 1px solid rgba(248,81,73,.25); border-radius: var(--rs); padding: 8px 10px; }
+.install-link      { color: var(--accent); text-decoration: none; }
+.install-link:hover { text-decoration: underline; }
+
+/* Port / device list */
+.install-list       { display: flex; flex-direction: column; gap: 4px; }
+.install-list-label { font-size: 11px; font-weight: 600; color: var(--text-3); text-transform: uppercase; letter-spacing: .5px; margin-bottom: 2px; }
+.install-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 10px;
+  border-radius: var(--rs); border: 1px solid var(--border); background: var(--bg-2);
+  cursor: pointer; transition: border-color .12s, background .12s;
+}
+.install-item:hover  { background: var(--bg-3); border-color: var(--accent); }
+.install-item.active { border-color: var(--accent); background: var(--accent-dim); }
+.install-item input[type="radio"] { accent-color: var(--accent); flex-shrink: 0; }
+.install-item-name { font-family: var(--mono); font-size: 12px; color: var(--text-1); flex: 1; }
+.install-item-hint { font-size: 11px; color: var(--text-3); }
+.install-item-hint code { font-family: var(--mono); font-size: 11px; }
+
+/* Inline text-button (retry/reload) */
+.btn-inline {
+  background: none; border: none; padding: 0; font-size: inherit;
+  color: var(--accent); cursor: pointer; text-decoration: underline;
+}
+.btn-inline:hover { color: var(--accent-h); }
+
+/* Spinner rotation */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { display: inline-block; animation: spin .9s linear infinite; }
