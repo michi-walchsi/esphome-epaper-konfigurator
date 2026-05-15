@@ -1,3 +1,5 @@
+import * as yaml from 'js-yaml';
+
 /**
  * ESPHome URL validation — blocks non-HTTP(S) schemes to prevent open-redirect
  * or javascript: injection via the user-configurable URL field.
@@ -26,7 +28,7 @@ const REDACT = [
 
 /**
  * Remove sensitive values from a single ESPHome log line before display.
- * Logs are shown in a <pre> (text node), so there is no XSS risk regardless,
+ * Logs are shown in a <pre> (text node), so there is no XSS risk either way,
  * but we still redact to avoid exposing credentials to shoulder-surfers.
  */
 export function sanitizeLogLine(line) {
@@ -41,16 +43,33 @@ export function sanitizeLogLine(line) {
   return out;
 }
 
+// js-yaml schema extended with ESPHome's !secret tag
+const SECRET_TYPE = new yaml.Type('!secret', {
+  kind: 'scalar',
+  resolve: () => true,
+  construct: data => `__secret__${data}`,
+});
+const ESPHOME_SCHEMA = yaml.DEFAULT_SCHEMA.extend([SECRET_TYPE]);
+
 /**
- * Basic sanity check on the generated YAML before it is sent to ESPHome.
- * The YAML itself is produced by our own generator, so this is a last-resort
- * guard against malformed state (e.g. corrupted user input slipping through).
+ * Validate generated YAML using js-yaml before sending to ESPHome.
+ * Uses a custom schema that accepts ESPHome's !secret tags.
  */
-export function validateYaml(yaml) {
-  const issues = [];
-  if (typeof yaml !== 'string' || !yaml.trim()) issues.push('YAML ist leer');
-  if (yaml.length > 100_000) issues.push('YAML zu groß (> 100 KB)');
+export function validateYaml(yamlStr) {
+  if (typeof yamlStr !== 'string' || !yamlStr.trim()) {
+    return { valid: false, issues: ['YAML ist leer'] };
+  }
+  if (yamlStr.length > 100_000) {
+    return { valid: false, issues: ['YAML zu groß (> 100 KB)'] };
+  }
   // Reject null bytes and non-printable control chars (except TAB/LF/CR)
-  if (/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(yaml)) issues.push('Ungültige Steuerzeichen im YAML');
-  return { valid: issues.length === 0, issues };
+  if (/[\x00-\x08\x0B\x0C\x0E-\x1F]/.test(yamlStr)) {
+    return { valid: false, issues: ['Ungültige Steuerzeichen im YAML'] };
+  }
+  try {
+    yaml.load(yamlStr, { schema: ESPHOME_SCHEMA });
+  } catch (e) {
+    return { valid: false, issues: [`YAML-Syntaxfehler: ${e.message}`] };
+  }
+  return { valid: true, issues: [] };
 }

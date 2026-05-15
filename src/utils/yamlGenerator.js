@@ -1,4 +1,4 @@
-import { SLOT_SIZES, layoutSlots, getMaxRows } from './displays';
+import { layoutSlots, getMaxRows } from './displays';
 
 const INTERVAL_FACTOR = { s: 1, min: 60, h: 3600 };
 
@@ -10,6 +10,36 @@ function getIntervalSecs(config) {
   return config.updateInterval ?? 60;
 }
 
+// Escape for YAML double-quoted scalar: backslash and double-quote only.
+function yamlEsc(s) {
+  return String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+// Escape for C++ printf format string inside a YAML double-quoted scalar.
+function yamlEscPrintf(s) {
+  return yamlEsc(s).replace(/%/g, '%%');
+}
+
+function safePin(pin) {
+  return /^[A-Za-z0-9_:]{1,20}$/.test(pin) ? pin : 'GPIO0';
+}
+
+function safeEntityId(id) {
+  return /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(id) ? id : '';
+}
+
+function safeFloat(val) {
+  const f = parseFloat(val);
+  return (!isNaN(f) && f > 0 && f <= 10) ? f.toFixed(1) : '2.0';
+}
+
+function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
+
+// Glyph set — contains " and \ which MUST be escaped before use in YAML double-quoted strings.
+const GLYPHS = yamlEsc(
+  ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~öäüÖÄÜß°%`
+);
+
 export function generateYaml(config, slots) {
   const {
     display, board, title, deviceName, displayName,
@@ -19,78 +49,69 @@ export function generateYaml(config, slots) {
   } = config;
 
   const intervalSecs = getIntervalSecs(config);
-
-  const isESP32  = board.platform === 'esp32';
-  const isLilygo = display.platform === 'lilygo_t5_47';
-  const layout   = layoutSlots(slots, gridCols);
-  const maxRows  = getMaxRows(layout);
+  const isESP32      = board.platform === 'esp32';
+  const isLilygo     = display.platform === 'lilygo_t5_47';
+  const layout       = layoutSlots(slots, gridCols);
+  const maxRows      = getMaxRows(layout);
   const hasLocalBatt = Boolean(batteryPresent && batteryPin);
   const hasHaBatt    = !batteryPresent && Boolean(batteryEntityId);
   const hasBatt      = hasLocalBatt || hasHaBatt;
   const hasDeepSleep = (deepSleep ?? 0) > 0;
 
-  // ── Sensor section ──────────────────────────────────────
+  // ── Sensor section ──────────────────────────────────────────────────────────
   const sensorSlots = slots.filter(s => safeEntityId(s.entityId));
-  const sensorLines = sensorSlots.map((slot, i) =>
-    `  - platform: homeassistant\n` +
-    `    id: sensor_${i + 1}\n` +
-    `    entity_id: ${safeEntityId(slot.entityId)}\n` +
-    `    on_value:\n` +
-    `      then:\n` +
-    `        - component.update: epaper_display`
-  );
+  const sensorItems = sensorSlots.map((slot, i) => [
+    `  - platform: homeassistant`,
+    `    id: sensor_${i + 1}`,
+    `    entity_id: ${safeEntityId(slot.entityId)}`,
+    `    on_value:`,
+    `      then:`,
+    `        - component.update: epaper_display`,
+  ].join('\n'));
+
   if (hasLocalBatt) {
-    // ESP measures battery voltage directly via ADC, converts to %
     const mult = safeFloat(voltageMultiplier);
-    sensorLines.push(
-      `  - platform: adc\n` +
-      `    pin: ${safePin(batteryPin)}\n` +
-      `    name: "Batterie"\n` +
-      `    id: battery_level\n` +
-      `    attenuation: 11db\n` +
-      `    unit_of_measurement: "%"\n` +
-      `    device_class: battery\n` +
-      `    accuracy_decimals: 0\n` +
-      `    update_interval: ${intervalSecs}s\n` +
-      `    filters:\n` +
-      `      - multiply: ${mult}\n` +
-      `      - lambda: |-\n` +
-      `          float pct = (x - 3.2f) / (4.2f - 3.2f) * 100.0f;\n` +
-      `          if (pct > 100.0f) pct = 100.0f;\n` +
-      `          if (pct < 0.0f) pct = 0.0f;\n` +
-      `          return pct;\n` +
-      `    on_value:\n` +
-      `      then:\n` +
-      `        - component.update: epaper_display`
-    );
+    sensorItems.push([
+      `  - platform: adc`,
+      `    pin: ${safePin(batteryPin)}`,
+      `    name: "Batterie"`,
+      `    id: battery_level`,
+      `    attenuation: 11db`,
+      `    unit_of_measurement: "%"`,
+      `    device_class: battery`,
+      `    accuracy_decimals: 0`,
+      `    update_interval: ${intervalSecs}s`,
+      `    filters:`,
+      `      - multiply: ${mult}`,
+      `      - lambda: |-`,
+      `          float pct = (x - 3.2f) / (4.2f - 3.2f) * 100.0f;`,
+      `          if (pct > 100.0f) pct = 100.0f;`,
+      `          if (pct < 0.0f) pct = 0.0f;`,
+      `          return pct;`,
+      `    on_value:`,
+      `      then:`,
+      `        - component.update: epaper_display`,
+    ].join('\n'));
   } else if (hasHaBatt) {
-    sensorLines.push(
-      `  - platform: homeassistant\n` +
-      `    id: battery_level\n` +
-      `    entity_id: ${safeEntityId(batteryEntityId)}\n` +
-      `    on_value:\n` +
-      `      then:\n` +
-      `        - component.update: epaper_display`
-    );
+    sensorItems.push([
+      `  - platform: homeassistant`,
+      `    id: battery_level`,
+      `    entity_id: ${safeEntityId(batteryEntityId)}`,
+      `    on_value:`,
+      `      then:`,
+      `        - component.update: epaper_display`,
+    ].join('\n'));
   }
-  const sensorSection = sensorLines.length
-    ? `sensor:\n${sensorLines.join('\n\n')}\n`
-    : '';
 
-  // ── Display block ──────────────────────────────────────
-  const displayBlock = isLilygo
-    ? `  - platform: lilygo_t5_47\n    full_update_every: 1\n    update_interval: ${intervalSecs}s`
-    : `  - platform: waveshare_epaper\n    model: ${display.model}\n` +
-      `    cs_pin: ${safePin(spiPins.cs)}\n    dc_pin: ${safePin(spiPins.dc)}\n` +
-      `    reset_pin: ${safePin(spiPins.rst)}\n    busy_pin: ${safePin(spiPins.busy)}\n` +
-      `    update_interval: ${intervalSecs}s`;
-
-  const spiSection  = isLilygo ? '' : `spi:\n  clk_pin: ${safePin(spiPins.clk)}\n  mosi_pin: ${safePin(spiPins.mosi)}\n\n`;
-  const boardBlock  = isESP32
+  // ── Board, SPI, font sizes ──────────────────────────────────────────────────
+  const boardBlock = isESP32
     ? `esp32:\n  board: ${board.id}\n  framework:\n    type: arduino`
     : `esp8266:\n  board: ${board.id}`;
 
-  // ── Font sizes (proportional to display height) ────────
+  const spiBlock = isLilygo
+    ? null
+    : `spi:\n  clk_pin: ${safePin(spiPins.clk)}\n  mosi_pin: ${safePin(spiPins.mosi)}`;
+
   const fs = {
     title:  clamp(Math.floor(display.height * 0.065), 16, 36),
     header: clamp(Math.floor(display.height * 0.055), 14, 32),
@@ -98,88 +119,140 @@ export function generateYaml(config, slots) {
     small:  clamp(Math.floor(display.height * 0.032), 10, 20),
   };
 
-  const glyphs = ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~öäüÖÄÜß°%`;
-  const lambda = buildLambda(config, layout, maxRows, hasBatt);
-
-  // ── WiFi ───────────────────────────────────────────────
-  const wifiBlock = wifiSsid
-    ? `  ssid: "${esc(wifiSsid)}"\n  password: "${esc(wifiPassword || '')}"`
+  // ── WiFi ────────────────────────────────────────────────────────────────────
+  const wifiCredentials = wifiSsid
+    ? `  ssid: "${yamlEsc(wifiSsid)}"\n  password: "${yamlEsc(wifiPassword || '')}"`
     : `  ssid: !secret wifi_ssid\n  password: !secret wifi_password`;
 
-  // ── Deep sleep section ─────────────────────────────────
-  const deepSleepSection = hasDeepSleep
-    ? `\ndeep_sleep:\n  id: deep_sleep_1\n  run_duration: 30s\n  sleep_duration: ${deepSleep}min\n  wakeup_pin:\n    number: GPIO0\n    inverted: true`
-    : '';
+  // ── Lambda (C++ code for display rendering) ─────────────────────────────────
+  const lambdaLines = buildLambda(config, layout, maxRows, hasBatt).split('\n');
 
-  // ── safe_mode (wichtig für OTA bei Deep Sleep) ─────────
-  const safeModeSection = hasDeepSleep
-    ? `\nsafe_mode:\n  reboot_timeout: 10min\n  num_attempts: 5\n`
-    : '';
+  // ── Display block — id, rotation, lambda INSIDE the list item (4-space indent) ──
+  const displayItemLines = isLilygo
+    ? [
+        `  - platform: lilygo_t5_47`,
+        `    full_update_every: 1`,
+        `    update_interval: ${intervalSecs}s`,
+      ]
+    : [
+        `  - platform: waveshare_epaper`,
+        `    model: ${display.model}`,
+        `    cs_pin: ${safePin(spiPins.cs)}`,
+        `    dc_pin: ${safePin(spiPins.dc)}`,
+        `    reset_pin: ${safePin(spiPins.rst)}`,
+        `    busy_pin: ${safePin(spiPins.busy)}`,
+        `    update_interval: ${intervalSecs}s`,
+      ];
 
-  return `# ESPHome Konfiguration
-# Generiert von ESPHome e-Paper Konfigurator
-# ${new Date().toLocaleDateString('de-AT')} ${new Date().toLocaleTimeString('de-AT')}
+  // Append id, rotation, and lambda as part of the same list item
+  displayItemLines.push(
+    `    id: epaper_display`,
+    `    rotation: "0°"`,
+    `    lambda: |-`,
+    ...lambdaLines,
+  );
 
-esphome:
-  name: ${deviceName}
-  friendly_name: "${esc(displayName)}"
-  on_boot:
-    - priority: 200
-      then:
-        - component.update: epaper_display
+  // ── Assemble top-level sections ─────────────────────────────────────────────
+  const sections = [];
 
-${boardBlock}
+  sections.push([
+    `# ESPHome Konfiguration`,
+    `# Generiert von ESPHome e-Paper Konfigurator`,
+    `# ${new Date().toLocaleDateString('de-AT')} ${new Date().toLocaleTimeString('de-AT')}`,
+  ].join('\n'));
 
-logger:
+  sections.push([
+    `esphome:`,
+    `  name: ${deviceName}`,
+    `  friendly_name: "${yamlEsc(displayName)}"`,
+    `  on_boot:`,
+    `    - priority: 200`,
+    `      then:`,
+    `        - component.update: epaper_display`,
+  ].join('\n'));
 
-api:
-  encryption:
-    key: !secret api_key
+  sections.push(boardBlock);
 
-ota:
-  - platform: esphome
-    password: !secret ota_password
-${safeModeSection}
-wifi:
-${wifiBlock}
-  ap:
-    ssid: "${esc(displayName)} Fallback"
-    password: !secret ap_password
+  sections.push(`logger:`);
 
-captive_portal:
+  sections.push([
+    `api:`,
+    `  encryption:`,
+    `    key: !secret api_key`,
+  ].join('\n'));
 
-time:
-  - platform: homeassistant
-    id: ha_time
-    timezone: Europe/Vienna
+  sections.push([
+    `ota:`,
+    `  - platform: esphome`,
+    `    password: !secret ota_password`,
+  ].join('\n'));
 
-font:
-  - file: "gfonts://Roboto@700"
-    id: font_title
-    size: ${fs.title}
-    glyphs: "${glyphs}"
-  - file: "gfonts://Roboto"
-    id: font_header
-    size: ${fs.header}
-    glyphs: "${glyphs}"
-  - file: "gfonts://Roboto@700"
-    id: font_value
-    size: ${fs.value}
-    glyphs: "${glyphs}"
-  - file: "gfonts://Roboto"
-    id: font_small
-    size: ${fs.small}
-    glyphs: "${glyphs}"
+  if (hasDeepSleep) {
+    sections.push([
+      `safe_mode:`,
+      `  reboot_timeout: 10min`,
+      `  num_attempts: 5`,
+    ].join('\n'));
+  }
 
-${spiSection}${sensorSection}
-display:
-${displayBlock}
-  id: epaper_display
-  rotation: 0°
-  lambda: |-
-${lambda}
-${deepSleepSection}
-`.replace(/\n{3,}/g, '\n\n');
+  sections.push([
+    `wifi:`,
+    wifiCredentials,
+    `  ap:`,
+    `    ssid: "${yamlEsc(displayName)} Fallback"`,
+    `    password: !secret ap_password`,
+  ].join('\n'));
+
+  sections.push(`captive_portal:`);
+
+  sections.push([
+    `time:`,
+    `  - platform: homeassistant`,
+    `    id: ha_time`,
+    `    timezone: Europe/Vienna`,
+  ].join('\n'));
+
+  sections.push([
+    `font:`,
+    `  - file: "gfonts://Roboto@700"`,
+    `    id: font_title`,
+    `    size: ${fs.title}`,
+    `    glyphs: "${GLYPHS}"`,
+    `  - file: "gfonts://Roboto"`,
+    `    id: font_header`,
+    `    size: ${fs.header}`,
+    `    glyphs: "${GLYPHS}"`,
+    `  - file: "gfonts://Roboto@700"`,
+    `    id: font_value`,
+    `    size: ${fs.value}`,
+    `    glyphs: "${GLYPHS}"`,
+    `  - file: "gfonts://Roboto"`,
+    `    id: font_small`,
+    `    size: ${fs.small}`,
+    `    glyphs: "${GLYPHS}"`,
+  ].join('\n'));
+
+  if (spiBlock) sections.push(spiBlock);
+
+  if (sensorItems.length > 0) {
+    sections.push(`sensor:\n${sensorItems.join('\n\n')}`);
+  }
+
+  sections.push(`display:\n${displayItemLines.join('\n')}`);
+
+  if (hasDeepSleep) {
+    sections.push([
+      `deep_sleep:`,
+      `  id: deep_sleep_1`,
+      `  run_duration: 30s`,
+      `  sleep_duration: ${deepSleep}min`,
+      `  wakeup_pin:`,
+      `    number: GPIO0`,
+      `    inverted: true`,
+    ].join('\n'));
+  }
+
+  return sections.join('\n\n') + '\n';
 }
 
 function buildLambda(config, layout, maxRows, hasBatt) {
@@ -200,7 +273,7 @@ function buildLambda(config, layout, maxRows, hasBatt) {
   lines.push(`      `);
   lines.push(`      // ── Header ──────────────────────────────────`);
   lines.push(`      it.filled_rectangle(0, 0, ${w}, ${headerH});`);
-  lines.push(`      it.printf(${pad + 4}, ${mid}, id(font_title), COLOR_OFF, TextAlign::CENTER_LEFT, "${escPrintf(title)}");`);
+  lines.push(`      it.printf(${pad + 4}, ${mid}, id(font_title), COLOR_OFF, TextAlign::CENTER_LEFT, "${yamlEscPrintf(title)}");`);
   lines.push(`      it.strftime(${timeX}, ${mid}, id(font_small), COLOR_OFF, TextAlign::CENTER_RIGHT, "%H:%M  %d.%m.%Y", id(ha_time).now());`);
 
   if (hasBatt) {
@@ -217,28 +290,26 @@ function buildLambda(config, layout, maxRows, hasBatt) {
 
   let sensorIdx = 0;
   for (const { slot, size, col, row } of layout) {
-    const x   = col * cellW + pad;
-    const y   = headerH + row * cellH + pad;
-    const sw  = size.cols * cellW - pad * 2;
-    const sh  = size.rows * cellH - pad * 2;
-    const cx  = x + Math.round(sw / 2);
-    const cy  = y + Math.round(sh / 2);
+    const x  = col * cellW + pad;
+    const y  = headerH + row * cellH + pad;
+    const sw = size.cols * cellW - pad * 2;
+    const sh = size.rows * cellH - pad * 2;
+    const cx = x + Math.round(sw / 2);
+    const cy = y + Math.round(sh / 2);
 
-    // Font: größere Slots bekommen größere Schrift
-    const slotArea    = sw * sh;
-    const totalArea   = w * h;
-    const valueFont   = slotArea > totalArea * 0.15 ? 'font_value'
-                      : slotArea > totalArea * 0.06 ? 'font_header'
-                      : 'font_small';
-    const titleFont   = 'font_small';
+    const slotArea  = sw * sh;
+    const totalArea = w * h;
+    const valueFont = slotArea > totalArea * 0.15 ? 'font_value'
+                    : slotArea > totalArea * 0.06  ? 'font_header'
+                    : 'font_small';
 
-    lines.push(`      // ── Slot: ${esc(slot.title || `Slot ${sensorIdx + 1}`)} ──`);
+    lines.push(`      // ── Slot: ${yamlEsc(slot.title || `Slot ${sensorIdx + 1}`)} ──`);
     lines.push(`      it.rectangle(${x}, ${y}, ${sw}, ${sh});`);
-    lines.push(`      it.printf(${cx}, ${y + pad + 2}, id(${titleFont}), TextAlign::TOP_CENTER, "${escPrintf(slot.title)}");`);
+    lines.push(`      it.printf(${cx}, ${y + pad + 2}, id(font_small), TextAlign::TOP_CENTER, "${yamlEscPrintf(slot.title)}");`);
 
     if (slot.entityId) {
       sensorIdx++;
-      const unit = slot.unit ? ` ${escPrintf(slot.unit)}` : '';
+      const unit = slot.unit ? ` ${yamlEscPrintf(slot.unit)}` : '';
       lines.push(`      if (!std::isnan(id(sensor_${sensorIdx}).state)) {`);
       lines.push(`        it.printf(${cx}, ${cy + pad}, id(${valueFont}), TextAlign::CENTER, "%.1f${unit}", id(sensor_${sensorIdx}).state);`);
       lines.push(`      } else {`);
@@ -249,18 +320,4 @@ function buildLambda(config, layout, maxRows, hasBatt) {
   }
 
   return lines.join('\n');
-}
-
-function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
-function esc(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
-function escPrintf(s) { return esc(s).replace(/%/g, '%%'); }
-function safePin(pin) {
-  return /^[A-Za-z0-9_:]{1,20}$/.test(pin) ? pin : 'GPIO0';
-}
-function safeEntityId(id) {
-  return /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(id) ? id : '';
-}
-function safeFloat(val) {
-  const f = parseFloat(val);
-  return (!isNaN(f) && f > 0 && f <= 10) ? f.toFixed(1) : '2.0';
 }
