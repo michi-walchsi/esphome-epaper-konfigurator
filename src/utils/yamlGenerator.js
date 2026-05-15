@@ -36,8 +36,9 @@ function safeFloat(val) {
 function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
 
 // Glyph set — contains " and \ which MUST be escaped before use in YAML double-quoted strings.
+// % is already included in the ASCII printable range ($%&) — no duplicate allowed by ESPHome.
 const GLYPHS = yamlEsc(
-  ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~öäüÖÄÜß°%`
+  ` !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_\`abcdefghijklmnopqrstuvwxyz{|}~öäüÖÄÜß°`
 );
 
 export function generateYaml(config, slots) {
