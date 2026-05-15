@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { DISPLAYS, BOARDS } from './utils/displays';
 import { DEMO_ENTITIES } from './utils/entities';
 import { generateYaml } from './utils/yamlGenerator';
@@ -10,10 +10,8 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.8.0';
+export const APP_VERSION = '1.8.1';
 
-// ESPHome add-on slugs — tried via supervisor API and as CORS-free ingress fallback
-const ESPHOME_INGRESS_SLUGS = ['a0d7b954_esphome', 'a0d7b954_esphome_beta'];
 
 // Voltage divider presets (multiplier = inverse of divider ratio)
 export const VOLTAGE_PRESETS = [
@@ -76,10 +74,6 @@ export default function App({ hass = null }) {
 
   const isPanel = hass !== null;
 
-  // Keep a stable ref to hass so checkEsphome can use it without being recreated on every hass change
-  const hassRef = useRef(hass);
-  useEffect(() => { hassRef.current = hass; }, [hass]);
-
   // Load real HA entities whenever hass changes
   useEffect(() => {
     if (!hass?.states) return;
@@ -93,15 +87,6 @@ export default function App({ hass = null }) {
     }
   }, [hass]);
 
-  // Re-check ESPHome via supervisor API once hass becomes available (panel first connect)
-  const hassReadyCheckedRef = useRef(false);
-  useEffect(() => {
-    if (hass !== null && !hassReadyCheckedRef.current) {
-      hassReadyCheckedRef.current = true;
-      checkEsphome(); // eslint-disable-line react-hooks/exhaustive-deps
-    }
-  }, [hass]); // eslint-disable-line react-hooks/exhaustive-deps
-
   useEffect(() => {
     localStorage.setItem('esphome_devices', JSON.stringify(devices));
   }, [devices]);
@@ -112,60 +97,16 @@ export default function App({ hass = null }) {
       setEsphomeStatus('error'); return;
     }
     setEsphomeStatus('loading');
-    setEsphomeVersion(null);
 
-    const tryVersion = async (b, timeout = 4000) => {
-      try {
-        const res = await fetch(`${b}/version`, { signal: AbortSignal.timeout(timeout) });
-        if (!res.ok) return { reachable: true, version: null };
-        const data = await res.json().catch(() => null);
-        return { reachable: true, version: data?.version ?? null };
-      } catch {
-        return { reachable: false, version: null };
-      }
-    };
-
-    const applyIngress = (ingressBase, result) => {
-      if (result.version) setEsphomeVersion(result.version);
+    // no-cors: browser sends request without CORS preflight — no console CORS errors.
+    // An opaque response (server replied) = reachable; network exception = not reachable.
+    // ESPHome version is read from hass.states update entity, not from this fetch.
+    try {
+      await fetch(`${base}/version`, { signal: AbortSignal.timeout(5000), mode: 'no-cors' });
       setEsphomeStatus('ok');
-      setConfig(p => ({ ...p, esphomeUrl: ingressBase }));
-    };
-
-    // 1. Ask HA Supervisor for the definitive ingress URL (requires admin, gracefully degrades)
-    const curHass = hassRef.current;
-    if (curHass?.callApi) {
-      for (const slug of ESPHOME_INGRESS_SLUGS) {
-        try {
-          const info = await curHass.callApi('GET', `hassio/addons/${slug}/info`);
-          const ingressPath = info?.data?.ingress_url || info?.ingress_url;
-          if (typeof ingressPath === 'string' && ingressPath.startsWith('/')) {
-            const ingressBase = window.location.origin + ingressPath.replace(/\/$/, '');
-            const result = await tryVersion(ingressBase, 3000);
-            if (result.reachable) { applyIngress(ingressBase, result); return; }
-          }
-        } catch { /* not admin or slug not found — try next */ }
-      }
+    } catch {
+      setEsphomeStatus('error');
     }
-
-    // 2. Try the configured URL directly (works when HA is on HTTP / no CORS block)
-    const direct = await tryVersion(base);
-    if (direct.reachable) {
-      if (direct.version) setEsphomeVersion(direct.version);
-      setEsphomeStatus('ok');
-      return;
-    }
-
-    // 3. CORS/mixed-content fallback: probe known ingress paths by slug
-    const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-    if (!isLocalDev) {
-      for (const slug of ESPHOME_INGRESS_SLUGS) {
-        const ingressBase = `${window.location.origin}/api/hassio_ingress/${slug}`;
-        const result = await tryVersion(ingressBase, 3000);
-        if (result.reachable) { applyIngress(ingressBase, result); return; }
-      }
-    }
-
-    setEsphomeStatus('error');
   }, [config.esphomeUrl]);
 
   const loadEsphomeConfigs = useCallback(async () => {

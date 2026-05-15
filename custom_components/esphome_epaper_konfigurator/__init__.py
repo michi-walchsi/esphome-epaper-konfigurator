@@ -5,6 +5,7 @@ import logging
 from homeassistant.core import HomeAssistant
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.components.http import StaticPathConfig
+from homeassistant.components.frontend import async_remove_panel
 from homeassistant.components.panel_custom import async_register_panel
 
 DOMAIN = "esphome_epaper_konfigurator"
@@ -38,22 +39,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     except RuntimeError:
         pass  # already registered on a previous setup
 
-    try:
-        await async_register_panel(
-            hass,
-            webcomponent_name="esphome-epaper-panel",
-            frontend_url_path=PANEL_URL,
-            module_url=f"{STATIC_PATH}/panel.js?v={version}",
-            sidebar_title="ESPHome Konfigurator",
-            sidebar_icon="mdi:chip",
-            require_admin=False,
-        )
-    except ValueError:
-        pass  # panel already registered from a previous setup
+    # Always remove then re-register so module_url reflects the current version
+    async_remove_panel(hass, PANEL_URL)
+    await async_register_panel(
+        hass,
+        webcomponent_name="esphome-epaper-panel",
+        frontend_url_path=PANEL_URL,
+        module_url=f"{STATIC_PATH}/panel.js?v={version}",
+        sidebar_title="ESPHome Konfigurator",
+        sidebar_icon="mdi:chip",
+        require_admin=False,
+    )
 
     _LOGGER.info("ESPHome ePaper Konfigurator Panel v%s registriert", version)
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    async_remove_panel(hass, PANEL_URL)
     return True
