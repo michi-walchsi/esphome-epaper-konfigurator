@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { DISPLAYS, BOARDS } from '../utils/displays';
+import { VOLTAGE_PRESETS } from '../App';
 import EntityPicker from './EntityPicker';
 import LivePreview  from './LivePreview';
 import SlotEditor   from './SlotEditor';
@@ -117,20 +118,92 @@ export default function ConfiguratorTab({
           {/* ── Batterie ── */}
           <div className="section-card">
             <div className="section-title">Batterie-Status</div>
+
+            {/* Toggle: local ADC vs. HA entity */}
             <div className="form-group">
-              <label>Batterie Entity ID</label>
-              <div className="entity-input-row">
-                <input
-                  value={config.batteryEntityId}
-                  onChange={e => set('batteryEntityId', e.target.value)}
-                  placeholder="sensor.epaper_battery"
-                />
-                <button className="entity-pick-btn" onClick={() => setBattPickerOpen(true)} aria-label="Entity auswählen" title="Entity auswählen"><IcoGrid size={14} /></button>
+              <label>Batterie vorhanden?</label>
+              <div className="batt-toggle-row">
+                <button
+                  className={`batt-toggle-btn${config.batteryPresent ? ' active' : ''}`}
+                  onClick={() => set('batteryPresent', true)}
+                >
+                  Ja — ESP misst selbst (ADC)
+                </button>
+                <button
+                  className={`batt-toggle-btn${!config.batteryPresent ? ' active' : ''}`}
+                  onClick={() => set('batteryPresent', false)}
+                >
+                  Nein / HA Sensor
+                </button>
               </div>
-              <span style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
-                0–20 % rot · 20–50 % gelb · 50–100 % grün
-              </span>
             </div>
+
+            {config.batteryPresent ? (
+              /* ── Local ADC mode ── */
+              <>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Batterie Pin</label>
+                    <input
+                      value={config.batteryPin || 'GPIO34'}
+                      onChange={e => set('batteryPin', e.target.value.replace(/[^A-Za-z0-9_:]/g, ''))}
+                      placeholder="GPIO34"
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Spannungsteiler</label>
+                    <select
+                      value={config.batteryPreset || 'firebeetle'}
+                      onChange={e => {
+                        const preset = VOLTAGE_PRESETS.find(p => p.id === e.target.value);
+                        set('batteryPreset', e.target.value);
+                        if (preset?.multiplier !== null) set('voltageMultiplier', preset.multiplier);
+                      }}
+                    >
+                      {VOLTAGE_PRESETS.map(p => (
+                        <option key={p.id} value={p.id}>{p.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {config.batteryPreset === 'custom' && (
+                  <div className="form-group">
+                    <label>Multiplikator (Spannungsteiler-Verhältnis)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="1"
+                      max="10"
+                      value={config.voltageMultiplier ?? 2.0}
+                      onChange={e => set('voltageMultiplier', parseFloat(e.target.value) || 2.0)}
+                    />
+                  </div>
+                )}
+                <div className="batt-auto-hint">
+                  Batterie-Sensor wird automatisch ins YAML eingefügt.<br />
+                  HA Entity: <code>sensor.{config.deviceName.replace(/-/g, '_')}_batterie</code>
+                </div>
+              </>
+            ) : (
+              /* ── HA entity mode ── */
+              <div className="form-group">
+                <label>Batterie Entity ID</label>
+                <div className="entity-input-row">
+                  <input
+                    value={config.batteryEntityId || ''}
+                    onChange={e => set('batteryEntityId', e.target.value)}
+                    placeholder="sensor.epaper_battery"
+                  />
+                  <button className="entity-pick-btn" onClick={() => setBattPickerOpen(true)} aria-label="Entity auswählen" title="Entity auswählen">
+                    <IcoGrid size={14} />
+                  </button>
+                </div>
+                <span style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 3 }}>
+                  0–20 % rot · 20–50 % gelb · 50–100 % grün
+                </span>
+              </div>
+            )}
+
             {battPickerOpen && (
               <EntityPicker
                 entities={entities}

@@ -148,3 +148,47 @@ test('Gerät speichern erscheint in Geräte-Liste', async ({ page }) => {
   await page.getByRole('button', { name: 'Geräte' }).click();
   await expect(page.getByText('mein test display')).toBeVisible();
 });
+
+test('Batterie-Toggle: Standard zeigt "Nein / HA Sensor"', async ({ page }) => {
+  await page.getByRole('button', { name: 'Konfigurator' }).click();
+  const noBtn = page.locator('.batt-toggle-btn', { hasText: 'Nein / HA Sensor' });
+  await expect(noBtn).toBeVisible();
+  await expect(noBtn).toHaveClass(/active/);
+  // Entity-Picker Input muss sichtbar sein
+  await expect(page.getByPlaceholder('sensor.epaper_battery')).toBeVisible();
+});
+
+test('Batterie-Toggle: "Ja — ESP misst selbst" zeigt ADC-Felder', async ({ page }) => {
+  await page.getByRole('button', { name: 'Konfigurator' }).click();
+  await page.locator('.batt-toggle-btn', { hasText: 'Ja — ESP misst selbst' }).click();
+
+  // Pin-Feld und Spannungsteiler-Dropdown erscheinen
+  await expect(page.getByPlaceholder('GPIO34')).toBeVisible();
+  await expect(page.locator('select').filter({ hasText: /FireBeetle|LOLIN|TTGO|Eigener/ })).toBeVisible();
+
+  // Auto-Hint zeigt Entity-ID
+  await expect(page.locator('.batt-auto-hint')).toBeVisible();
+  await expect(page.locator('.batt-auto-hint')).toContainText('sensor.');
+});
+
+test('Batterie-ADC: YAML enthält adc Sensor wenn aktiviert', async ({ page }) => {
+  await page.getByRole('button', { name: 'Konfigurator' }).click();
+  await page.locator('.batt-toggle-btn', { hasText: 'Ja — ESP misst selbst' }).click();
+
+  await page.getByRole('button', { name: 'YAML' }).click();
+  const code = await page.locator('.yaml-code').textContent();
+  expect(code).toContain('platform: adc');
+  expect(code).toContain('GPIO34');
+  expect(code).toContain('battery_level');
+  expect(code).toContain('multiply:');
+  expect(code).not.toContain('platform: homeassistant\n    id: battery_level');
+});
+
+test('Batterie-ADC: Eigener Wert zeigt Multiplikator-Input', async ({ page }) => {
+  await page.getByRole('button', { name: 'Konfigurator' }).click();
+  await page.locator('.batt-toggle-btn', { hasText: 'Ja — ESP misst selbst' }).click();
+
+  // Eigener Wert auswählen
+  await page.locator('select').filter({ hasText: /FireBeetle|LOLIN|TTGO|Eigener/ }).selectOption({ value: 'custom' });
+  await expect(page.locator('input[type="number"][min="1"]')).toBeVisible();
+});

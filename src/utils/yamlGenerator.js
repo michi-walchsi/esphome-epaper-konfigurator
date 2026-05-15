@@ -5,13 +5,16 @@ export function generateYaml(config, slots) {
     display, board, title, deviceName, displayName,
     spiPins, deepSleep, updateInterval, gridCols,
     batteryEntityId, wifiSsid, wifiPassword,
+    batteryPresent, batteryPin, voltageMultiplier,
   } = config;
 
   const isESP32  = board.platform === 'esp32';
   const isLilygo = display.platform === 'lilygo_t5_47';
   const layout   = layoutSlots(slots, gridCols);
   const maxRows  = getMaxRows(layout);
-  const hasBatt  = Boolean(batteryEntityId);
+  const hasLocalBatt = Boolean(batteryPresent && batteryPin);
+  const hasHaBatt    = !batteryPresent && Boolean(batteryEntityId);
+  const hasBatt      = hasLocalBatt || hasHaBatt;
   const hasDeepSleep = (deepSleep ?? 0) > 0;
 
   // ── Sensor section ──────────────────────────────────────
@@ -24,7 +27,31 @@ export function generateYaml(config, slots) {
     `      then:\n` +
     `        - component.update: epaper_display`
   );
-  if (hasBatt) {
+  if (hasLocalBatt) {
+    // ESP measures battery voltage directly via ADC, converts to %
+    const mult = safeFloat(voltageMultiplier);
+    sensorLines.push(
+      `  - platform: adc\n` +
+      `    pin: ${safePin(batteryPin)}\n` +
+      `    name: "Batterie"\n` +
+      `    id: battery_level\n` +
+      `    attenuation: 11db\n` +
+      `    unit_of_measurement: "%"\n` +
+      `    device_class: battery\n` +
+      `    accuracy_decimals: 0\n` +
+      `    update_interval: ${updateInterval}s\n` +
+      `    filters:\n` +
+      `      - multiply: ${mult}\n` +
+      `      - lambda: |-\n` +
+      `          float pct = (x - 3.2f) / (4.2f - 3.2f) * 100.0f;\n` +
+      `          if (pct > 100.0f) pct = 100.0f;\n` +
+      `          if (pct < 0.0f) pct = 0.0f;\n` +
+      `          return pct;\n` +
+      `    on_value:\n` +
+      `      then:\n` +
+      `        - component.update: epaper_display`
+    );
+  } else if (hasHaBatt) {
     sensorLines.push(
       `  - platform: homeassistant\n` +
       `    id: battery_level\n` +
@@ -215,11 +242,13 @@ function buildLambda(config, layout, maxRows, hasBatt) {
 function clamp(val, min, max) { return Math.min(max, Math.max(min, val)); }
 function esc(s) { return String(s ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"'); }
 function escPrintf(s) { return esc(s).replace(/%/g, '%%'); }
-// Allowlist GPIO pin names: GPIO18, IO4, A0, ESP32:GPIO0, etc.
 function safePin(pin) {
   return /^[A-Za-z0-9_:]{1,20}$/.test(pin) ? pin : 'GPIO0';
 }
-// Allowlist HA entity IDs: domain.object_id format with safe chars only
 function safeEntityId(id) {
   return /^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$/.test(id) ? id : '';
+}
+function safeFloat(val) {
+  const f = parseFloat(val);
+  return (!isNaN(f) && f > 0 && f <= 10) ? f.toFixed(1) : '2.0';
 }

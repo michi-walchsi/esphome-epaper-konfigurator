@@ -173,6 +173,35 @@
 .form-row { display: flex; gap: 8px; }
 .btn-group { display: flex; gap: 6px; }
 
+/* ── Battery Toggle ─────────────────────────────────────── */
+.batt-toggle-row { display: flex; gap: 6px; }
+.batt-toggle-btn {
+  flex: 1;
+  padding: 7px 10px;
+  background: var(--bg-2);
+  border: 1px solid var(--border);
+  border-radius: var(--rs);
+  color: var(--text-2);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.batt-toggle-btn:hover { border-color: var(--accent); color: var(--text-1); }
+.batt-toggle-btn.active { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.batt-auto-hint {
+  margin-top: 10px;
+  padding: 8px 10px;
+  background: rgba(88, 166, 255, 0.06);
+  border: 1px solid rgba(88, 166, 255, 0.2);
+  border-radius: var(--rs);
+  font-size: 11px;
+  color: var(--text-2);
+  line-height: 1.6;
+}
+.batt-auto-hint code { font-family: var(--mono); font-size: 10px; color: var(--accent); }
+
 .section-card {
   background: var(--bg-1);
   border: 1px solid var(--border);

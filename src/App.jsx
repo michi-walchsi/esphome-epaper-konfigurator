@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { DISPLAYS, BOARDS } from './utils/displays';
 import { DEMO_ENTITIES } from './utils/entities';
 import { generateYaml } from './utils/yamlGenerator';
@@ -10,10 +10,18 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.7.1';
+export const APP_VERSION = '1.8.0';
 
-// ESPHome add-on ingress slugs (tried as CORS-free fallback when direct URL fails)
+// ESPHome add-on slugs — tried via supervisor API and as CORS-free ingress fallback
 const ESPHOME_INGRESS_SLUGS = ['a0d7b954_esphome', 'a0d7b954_esphome_beta'];
+
+// Voltage divider presets (multiplier = inverse of divider ratio)
+export const VOLTAGE_PRESETS = [
+  { id: 'firebeetle', label: 'FireBeetle ESP32 (×2.0)', multiplier: 2.0 },
+  { id: 'lolin-d32',  label: 'LOLIN D32 (×2.0)',        multiplier: 2.0 },
+  { id: 'ttgo-t5',    label: 'TTGO T5 (×2.0)',           multiplier: 2.0 },
+  { id: 'custom',     label: 'Eigener Wert',             multiplier: null },
+];
 
 // These demo device names are removed from localStorage automatically on first load
 const LEGACY_DEMO_NAMES = new Set([
@@ -21,21 +29,26 @@ const LEGACY_DEMO_NAMES = new Set([
 ]);
 
 const INIT_CONFIG = {
-  title:          'Mein Dashboard',
-  deviceName:     'epaper-display',
-  displayName:    'E-Paper Display',
-  board:          BOARDS[0],
-  display:        DISPLAYS[0],
-  customWidth:    800,
-  customHeight:   480,
-  spiPins:        { cs: 'GPIO5', dc: 'GPIO17', rst: 'GPIO16', busy: 'GPIO4', clk: 'GPIO18', mosi: 'GPIO23' },
-  deepSleep:      0,
-  updateInterval: 60,
-  gridCols:       3,
-  batteryEntityId:'',
-  wifiSsid:       '',
-  wifiPassword:   '',
-  esphomeUrl:     'http://homeassistant.local:6052',
+  title:             'Mein Dashboard',
+  deviceName:        'epaper-display',
+  displayName:       'E-Paper Display',
+  board:             BOARDS[0],
+  display:           DISPLAYS[0],
+  customWidth:       800,
+  customHeight:      480,
+  spiPins:           { cs: 'GPIO5', dc: 'GPIO17', rst: 'GPIO16', busy: 'GPIO4', clk: 'GPIO18', mosi: 'GPIO23' },
+  deepSleep:         0,
+  updateInterval:    60,
+  gridCols:          3,
+  // Battery: local ADC mode (batteryPresent=true) or HA entity mode (batteryEntityId)
+  batteryPresent:    false,
+  batteryPin:        'GPIO34',
+  batteryPreset:     'firebeetle',
+  voltageMultiplier: 2.0,
+  batteryEntityId:   '',
+  wifiSsid:          '',
+  wifiPassword:      '',
+  esphomeUrl:        'http://homeassistant.local:6052',
 };
 
 const TABS = [
@@ -63,6 +76,10 @@ export default function App({ hass = null }) {
 
   const isPanel = hass !== null;
 
+  // Keep a stable ref to hass so checkEsphome can use it without being recreated on every hass change
+  const hassRef = useRef(hass);
+  useEffect(() => { hassRef.current = hass; }, [hass]);
+
   // Load real HA entities whenever hass changes
   useEffect(() => {
     if (!hass?.states) return;
@@ -75,6 +92,15 @@ export default function App({ hass = null }) {
       setEsphomeVersion(esphomeUpdate.attributes?.installed_version ?? null);
     }
   }, [hass]);
+
+  // Re-check ESPHome via supervisor API once hass becomes available (panel first connect)
+  const hassReadyCheckedRef = useRef(false);
+  useEffect(() => {
+    if (hass !== null && !hassReadyCheckedRef.current) {
+      hassReadyCheckedRef.current = true;
+      checkEsphome(); // eslint-disable-line react-hooks/exhaustive-deps
+    }
+  }, [hass]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     localStorage.setItem('esphome_devices', JSON.stringify(devices));
@@ -99,6 +125,29 @@ export default function App({ hass = null }) {
       }
     };
 
+    const applyIngress = (ingressBase, result) => {
+      if (result.version) setEsphomeVersion(result.version);
+      setEsphomeStatus('ok');
+      setConfig(p => ({ ...p, esphomeUrl: ingressBase }));
+    };
+
+    // 1. Ask HA Supervisor for the definitive ingress URL (requires admin, gracefully degrades)
+    const curHass = hassRef.current;
+    if (curHass?.callApi) {
+      for (const slug of ESPHOME_INGRESS_SLUGS) {
+        try {
+          const info = await curHass.callApi('GET', `hassio/addons/${slug}/info`);
+          const ingressPath = info?.data?.ingress_url || info?.ingress_url;
+          if (typeof ingressPath === 'string' && ingressPath.startsWith('/')) {
+            const ingressBase = window.location.origin + ingressPath.replace(/\/$/, '');
+            const result = await tryVersion(ingressBase, 3000);
+            if (result.reachable) { applyIngress(ingressBase, result); return; }
+          }
+        } catch { /* not admin or slug not found — try next */ }
+      }
+    }
+
+    // 2. Try the configured URL directly (works when HA is on HTTP / no CORS block)
     const direct = await tryVersion(base);
     if (direct.reachable) {
       if (direct.version) setEsphomeVersion(direct.version);
@@ -106,19 +155,13 @@ export default function App({ hass = null }) {
       return;
     }
 
-    // Direct URL blocked (CORS/mixed-content when HA runs on HTTPS) —
-    // try HA ingress paths which are same-origin and require no CORS headers.
+    // 3. CORS/mixed-content fallback: probe known ingress paths by slug
     const isLocalDev = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
     if (!isLocalDev) {
       for (const slug of ESPHOME_INGRESS_SLUGS) {
         const ingressBase = `${window.location.origin}/api/hassio_ingress/${slug}`;
-        const ingress = await tryVersion(ingressBase, 3000);
-        if (ingress.reachable) {
-          if (ingress.version) setEsphomeVersion(ingress.version);
-          setEsphomeStatus('ok');
-          setConfig(p => ({ ...p, esphomeUrl: ingressBase }));
-          return;
-        }
+        const result = await tryVersion(ingressBase, 3000);
+        if (result.reachable) { applyIngress(ingressBase, result); return; }
       }
     }
 
@@ -155,12 +198,18 @@ export default function App({ hass = null }) {
 
   const yaml = useMemo(() => generateYaml(effectiveConfig, slots), [effectiveConfig, slots]);
 
+  // When batteryPresent, the entity ID is auto-generated from the device name
+  const effectiveBatteryEntityId = useMemo(() => {
+    if (config.batteryPresent) return `sensor.${config.deviceName.replace(/-/g, '_')}_batterie`;
+    return config.batteryEntityId || '';
+  }, [config.batteryPresent, config.deviceName, config.batteryEntityId]);
+
   const batteryLevel = useMemo(() => {
-    if (!config.batteryEntityId) return null;
-    const e = entities.find(en => en.entity_id === config.batteryEntityId);
+    if (!effectiveBatteryEntityId) return null;
+    const e = entities.find(en => en.entity_id === effectiveBatteryEntityId);
     const v = e ? parseFloat(e.state) : NaN;
     return isNaN(v) ? null : v;
-  }, [config.batteryEntityId, entities]);
+  }, [effectiveBatteryEntityId, entities]);
 
   const openDevice = useCallback((device) => {
     if (device.config) setConfig(p => ({ ...p, ...device.config }));
