@@ -1,13 +1,10 @@
 import { layoutSlots, getMaxRows } from './displays';
 
-const INTERVAL_FACTOR = { s: 1, min: 60, h: 3600 };
-
-function getIntervalSecs(config) {
-  if (config.updateIntervalValue != null) {
-    const factor = INTERVAL_FACTOR[config.updateIntervalUnit] ?? 1;
-    return Math.max(1, Math.round(config.updateIntervalValue * factor));
-  }
-  return config.updateInterval ?? 60;
+// Returns ESPHome interval string — uses deep sleep duration when active, else fixed 60s.
+function getIntervalStr(config) {
+  const val = config.deepSleep ?? 0;
+  if (val > 0) return `${val}${config.deepSleepUnit ?? 'min'}`;
+  return '60s';
 }
 
 // Escape for YAML double-quoted scalar: backslash and double-quote only.
@@ -44,12 +41,12 @@ const GLYPHS = yamlEsc(
 export function generateYaml(config, slots) {
   const {
     display, board, title, deviceName, displayName,
-    spiPins, deepSleep, gridCols,
+    spiPins, deepSleep, deepSleepUnit, gridCols,
     batteryEntityId, wifiSsid, wifiPassword,
     batteryPresent, batteryPin, voltageMultiplier,
   } = config;
 
-  const intervalSecs = getIntervalSecs(config);
+  const intervalStr = getIntervalStr(config);
   const isESP32      = board.platform === 'esp32';
   const isLilygo     = display.platform === 'lilygo_t5_47';
   const layout       = layoutSlots(slots, gridCols);
@@ -77,11 +74,11 @@ export function generateYaml(config, slots) {
       `    pin: ${safePin(batteryPin)}`,
       `    name: "Batterie"`,
       `    id: battery_level`,
-      `    attenuation: 11db`,
+      `    attenuation: 12db`,
       `    unit_of_measurement: "%"`,
       `    device_class: battery`,
       `    accuracy_decimals: 0`,
-      `    update_interval: ${intervalSecs}s`,
+      `    update_interval: ${intervalStr}`,
       `    filters:`,
       `      - multiply: ${mult}`,
       `      - lambda: |-`,
@@ -133,7 +130,7 @@ export function generateYaml(config, slots) {
     ? [
         `  - platform: lilygo_t5_47`,
         `    full_update_every: 1`,
-        `    update_interval: ${intervalSecs}s`,
+        `    update_interval: ${intervalStr}`,
       ]
     : [
         `  - platform: waveshare_epaper`,
@@ -142,7 +139,7 @@ export function generateYaml(config, slots) {
         `    dc_pin: ${safePin(spiPins.dc)}`,
         `    reset_pin: ${safePin(spiPins.rst)}`,
         `    busy_pin: ${safePin(spiPins.busy)}`,
-        `    update_interval: ${intervalSecs}s`,
+        `    update_interval: ${intervalStr}`,
       ];
 
   // Append id, rotation, and lambda as part of the same list item
@@ -240,7 +237,7 @@ export function generateYaml(config, slots) {
       `deep_sleep:`,
       `  id: deep_sleep_1`,
       `  run_duration: 30s`,
-      `  sleep_duration: ${deepSleep}min`,
+      `  sleep_duration: ${deepSleep}${deepSleepUnit ?? 'min'}`,
       `  wakeup_pin:`,
       `    number: GPIO0`,
       `    inverted: true`,

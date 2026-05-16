@@ -10,7 +10,7 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.9.4';
+export const APP_VERSION = '1.9.5';
 
 
 // Voltage divider presets (multiplier = inverse of divider ratio)
@@ -36,9 +36,7 @@ const INIT_CONFIG = {
   customHeight:      480,
   spiPins:           { cs: 'GPIO5', dc: 'GPIO17', rst: 'GPIO16', busy: 'GPIO4', clk: 'GPIO18', mosi: 'GPIO23' },
   deepSleep:            0,
-  updateInterval:       60,  // legacy — kept so old saved devices still work
-  updateIntervalValue:  60,
-  updateIntervalUnit:   's', // 's' | 'min' | 'h'
+  deepSleepUnit:        'min', // 's' | 'min' | 'h'
   gridCols:             3,
   // Battery: local ADC mode (batteryPresent=true) or HA entity mode (batteryEntityId)
   batteryPresent:    false,
@@ -220,13 +218,7 @@ export default function App({ hass = null }) {
 
   const openDevice = useCallback((device) => {
     if (device.config) {
-      const cfg = { ...device.config };
-      // Migrate old saved devices that only have updateInterval (seconds) to new value+unit fields
-      if (cfg.updateIntervalValue === undefined && cfg.updateInterval != null) {
-        cfg.updateIntervalValue = cfg.updateInterval;
-        cfg.updateIntervalUnit  = 's';
-      }
-      setConfig(p => ({ ...p, ...cfg }));
+      setConfig(p => ({ ...p, ...device.config }));
     }
     setSlots(device.slots ?? []);
     setTab('configurator');
