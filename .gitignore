@@ -31,3 +31,13 @@ playwright-report/
 # Claude Code
 .claude/
 .remember/
+
+# ESPHome build artifacts
+.esphome/
+.pioenvs/
+.pio/
+
+# Environment files (never commit credentials)
+.env
+.env.*
+!.env.example

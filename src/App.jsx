@@ -10,7 +10,7 @@ import {
   IcoMonitor, IcoList, IcoSettings, IcoFile, IcoHome, IcoCpu,
 } from './components/Icons';
 
-export const APP_VERSION = '1.9.7';
+export const APP_VERSION = '1.9.8';
 
 
 // Voltage divider presets (multiplier = inverse of divider ratio)
@@ -257,9 +257,9 @@ export default function App({ hass = null }) {
         <div className="app-header-left">
           <IcoMonitor size={22} className="app-logo" />
           <div>
-            <div className="app-title">ESPHome e-Paper Konfigurator</div>
+            <div className="app-title">E-Paper-Maker</div>
             <div className="app-sub">
-              v{APP_VERSION} · {effectiveDisplay.width}×{effectiveDisplay.height}px
+              v{APP_VERSION}
               {!isPanel && <span style={{ marginLeft: 6, color: 'var(--accent)' }}>· Dev-Modus</span>}
             </div>
           </div>

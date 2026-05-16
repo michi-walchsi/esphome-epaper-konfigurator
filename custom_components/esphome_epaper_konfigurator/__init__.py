@@ -43,15 +43,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     async_remove_panel(hass, PANEL_URL)
     await async_register_panel(
         hass,
-        webcomponent_name="esphome-epaper-panel",
+        webcomponent_name="e-paper-maker-panel",
         frontend_url_path=PANEL_URL,
         module_url=f"{STATIC_PATH}/panel.js?v={version}",
-        sidebar_title="ESPHome Konfigurator",
+        sidebar_title="E-Paper-Maker",
         sidebar_icon="mdi:chip",
         require_admin=False,
     )
 
-    _LOGGER.info("ESPHome ePaper Konfigurator Panel v%s registriert", version)
+    _LOGGER.info("E-Paper-Maker Panel v%s registriert", version)
     return True
 
 

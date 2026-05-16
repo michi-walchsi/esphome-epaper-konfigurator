@@ -155,7 +155,7 @@ export function generateYaml(config, slots) {
 
   sections.push([
     `# ESPHome Konfiguration`,
-    `# Generiert von ESPHome e-Paper Konfigurator`,
+    `# Generiert von E-Paper-Maker`,
     `# ${new Date().toLocaleDateString('de-AT')} ${new Date().toLocaleTimeString('de-AT')}`,
   ].join('\n'));
 

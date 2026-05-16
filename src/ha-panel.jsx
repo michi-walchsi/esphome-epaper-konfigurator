@@ -3,7 +3,7 @@ import indexCss from './index.css?raw';
 import appCss from './App.css?raw';
 import App from './App.jsx';
 
-class EsphomeEpaperPanel extends HTMLElement {
+class EPaperMakerPanel extends HTMLElement {
   constructor() {
     super();
     this._shadow = this.attachShadow({ mode: 'open' });
@@ -45,4 +45,4 @@ class EsphomeEpaperPanel extends HTMLElement {
   }
 }
 
-customElements.define('esphome-epaper-panel', EsphomeEpaperPanel);
+customElements.define('e-paper-maker-panel', EPaperMakerPanel);

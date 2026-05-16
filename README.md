@@ -1,4 +1,4 @@
-# ESPHome e-Paper Konfigurator
+# E-Paper-Maker
 
 Visueller Konfigurator für ESPHome e-Paper Displays — direkt in der Home Assistant Seitenleiste.
 
@@ -31,17 +31,17 @@ Kategorie: **Integration**
 
 ### 2. Integration installieren
 
-HACS → Integrationen → **ESPHome ePaper Konfigurator** → Installieren
+HACS → Integrationen → **E-Paper-Maker** → Installieren
 
 ### 3. HA neu starten
 
 ### 4. Integration hinzufügen
 
-**Einstellungen → Geräte & Dienste → Integration hinzufügen → ESPHome ePaper Konfigurator**
+**Einstellungen → Geräte & Dienste → Integration hinzufügen → E-Paper-Maker**
 
 ### 5. Fertig ✅
 
-Der Konfigurator erscheint automatisch in der Seitenleiste mit dem 🖥-Symbol.
+Der E-Paper-Maker erscheint automatisch in der Seitenleiste mit dem Chip-Symbol.
 
 ---
 
