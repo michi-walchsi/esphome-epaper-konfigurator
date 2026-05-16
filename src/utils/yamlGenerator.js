@@ -274,7 +274,7 @@ function buildLambda(config, layout, maxRows, hasBatt) {
     lines.push(`      if (!std::isnan(id(battery_level).state)) {`);
     lines.push(`        char batt_buf[8];`);
     lines.push(`        snprintf(batt_buf, sizeof(batt_buf), "%d%%", (int)id(battery_level).state);`);
-    lines.push(`        it.printf(${w - pad}, ${mid}, id(font_small), COLOR_OFF, TextAlign::CENTER_RIGHT, batt_buf);`);
+    lines.push(`        it.print(${w - pad}, ${mid}, id(font_small), COLOR_OFF, TextAlign::CENTER_RIGHT, batt_buf);`);
     lines.push(`      }`);
   }
 

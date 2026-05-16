@@ -16,6 +16,103 @@ const PHASES = {
 
 const delay = ms => new Promise(res => setTimeout(res, ms));
 
+// Run an ESPHome WebSocket command. Resolves to true (exit 0) or false (error/cancel/timeout).
+function runWs(url, initMsg, { onLine, onPhase, cancelRef, wsRef, phaseDetect, firstTimeoutMs = 30_000, idleTimeoutMs = 180_000 }) {
+  return new Promise(resolve => {
+    let timeoutId = null;
+    let firstReceived = false;
+    let settled = false;
+
+    const settle = (ok) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timeoutId);
+      wsRef.current = null;
+      resolve(ok);
+    };
+
+    const resetTimeout = () => {
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        if (settled) return;
+        onLine('⏱ Timeout — keine Antwort von ESPHome. Erster Build kann mehrere Minuten dauern.');
+        onPhase('error');
+        const ws = wsRef.current;
+        settle(false);
+        ws?.close();
+      }, firstReceived ? idleTimeoutMs : firstTimeoutMs);
+    };
+
+    let ws;
+    try {
+      ws = new WebSocket(url);
+      wsRef.current = ws;
+    } catch (err) {
+      onLine(`WebSocket Fehler: ${err.message}`);
+      onPhase('error');
+      settle(false);
+      return;
+    }
+
+    resetTimeout();
+    ws.onopen = () => { ws.send(JSON.stringify(initMsg)); };
+
+    ws.onmessage = event => {
+      if (settled || cancelRef.current) return;
+      firstReceived = true;
+      resetTimeout();
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.event === 'line') {
+          const line = (msg.data ?? '').trim();
+          if (line) {
+            onLine(line);
+            phaseDetect?.(line, onPhase);
+          }
+        }
+        if (msg.event === 'exit') {
+          const ok = msg.code === 0;
+          if (!ok) {
+            onLine(`✗ Prozess beendet mit Code ${msg.code}`);
+            onPhase('error');
+          }
+          settle(ok);
+          ws.close();
+        }
+      } catch { /* ignore non-JSON frames */ }
+    };
+
+    ws.onerror = () => {
+      if (settled || cancelRef.current) return;
+      onLine('WebSocket Fehler — prüfe ESPHome Verbindung.');
+      onPhase('error');
+      settle(false);
+    };
+
+    ws.onclose = () => {
+      if (settled) return;
+      if (!cancelRef.current) {
+        onLine('⚡ Verbindung unterbrochen.');
+        onPhase('error');
+      }
+      settle(false);
+    };
+  });
+}
+
+function detectCompilePhase(line, setPhase) {
+  if (/Compiling/i.test(line))              setPhase('compiling');
+  if (/Linking/i.test(line))               setPhase('linking');
+  if (/\[ERROR\]|Build failed/i.test(line)) setPhase('error');
+}
+
+function detectUploadPhase(line, setPhase) {
+  if (/Uploading|OTA in progress|Connecting|Writing at/i.test(line)) setPhase('flashing');
+  if (/Rebooting|Hard resetting/i.test(line))                        setPhase('rebooting');
+  if (/Successfully upload/i.test(line))                             setPhase('done');
+  if (/\[ERROR\]|Build failed/i.test(line))                         setPhase('error');
+}
+
 export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, isDemo = false }) {
   const [phase,     setPhase]     = useState('idle');
   const [log,       setLog]       = useState('');
@@ -30,14 +127,9 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
   }, [log]);
 
   useEffect(() => {
-    return () => {
-      wsRef.current?.close();
-      abortRef.current?.abort();
-    };
+    return () => { wsRef.current?.close(); abortRef.current?.abort(); };
   }, []);
 
-  // All log lines pass through sanitizeLogLine before being stored in state.
-  // The log is rendered as text inside <pre>, so there is no XSS risk either way.
   const appendLog = line => setLog(prev => {
     const safe = sanitizeLogLine(line);
     return prev ? prev + '\n' + safe : safe;
@@ -51,13 +143,11 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
     setLog('');
   };
 
-  // ── Button click ─────────────────────────────────────────────
   function handleClick() {
     if (isDemo) simulateFlash();
     else setShowModal(true);
   }
 
-  // Called by InstallModal when the user confirms method + port
   function handleInstallConfirm({ method, port, configName }) {
     setShowModal(false);
     realFlash(method, port, configName);
@@ -72,7 +162,7 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
     await delay(600); if (cancelRef.current) return;
     appendLog(`✓ ${name}.yaml gespeichert (Demo-Simulation)`);
     setPhase('compiling');
-    appendLog('INFO Compiling /config/esphome/...');
+    appendLog('INFO Kompiliere — Schritt 1/2 (erster Build: 2–5 Minuten)…');
     await delay(700); if (cancelRef.current) return;
     appendLog('Compiling .pio/libdeps/esp32dev/ESPHome/src/esphome/core/application.cpp.o...');
     await delay(600); if (cancelRef.current) return;
@@ -83,7 +173,10 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
     await delay(400); if (cancelRef.current) return;
     appendLog('INFO Creating BIN file .pio/build/esp32dev/firmware.bin');
     await delay(300); if (cancelRef.current) return;
+    appendLog('✓ Kompilierung erfolgreich — starte Flash…');
+    await delay(300); if (cancelRef.current) return;
     setPhase('flashing');
+    appendLog('INFO Starte USB-Flash — Schritt 2/2…');
     appendLog('INFO Uploading firmware (size: 1124256 bytes)...');
     for (let p = 0; p <= 100; p += 25) {
       await delay(300); if (cancelRef.current) return;
@@ -97,9 +190,9 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
     setPhase('done');
   }
 
-  // ── Real flash (panel mode) ──────────────────────────────────
+  // ── Real flash: compile first, then upload ───────────────────
   async function realFlash(method, port, configName) {
-    // 1 — Resolve API base: prefer ingress (same-origin, cookie-auth), fall back to direct URL
+    // 1 — Resolve API base
     let base;
     if (esphomeApiBase) {
       base = esphomeApiBase;
@@ -111,7 +204,7 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
       }
     }
 
-    // 2 — Basic YAML sanity check before sending to ESPHome
+    // 2 — Basic YAML sanity check
     const { valid, issues } = validateYaml(yaml);
     if (!valid) {
       setPhase('error');
@@ -120,6 +213,12 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
     }
 
     const filename = `${configName}.yaml`;
+    if (!/^[a-z0-9][a-z0-9_-]*\.yaml$/.test(filename)) {
+      setPhase('error');
+      setLog('✗ Ungültiger Konfigurationsname.');
+      return;
+    }
+
     cancelRef.current = false;
     setPhase('saving'); setLog('');
     const ctrl = new AbortController();
@@ -156,90 +255,31 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
       return;
     }
 
-    setPhase('compiling');
-    appendLog(`Starte ${method === 'usb' ? 'USB-Flash' : 'OTA-Update'}…`);
-
-    // 4 — WebSocket /upload — JSON-Init-Frame {type:"spawn", configuration, port}
     const wsProto = base.startsWith('https') ? 'wss' : 'ws';
     const wsHost  = base.replace(/^https?:\/\//, '');
-    const wsUrl   = `${wsProto}://${wsHost}/upload`;
+    const wsOpts  = { onLine: appendLog, onPhase: setPhase, cancelRef, wsRef };
 
-    let timeoutId = null;
-    let firstMessageReceived = false;
-    const resetTimeout = () => {
-      clearTimeout(timeoutId);
-      // Before first output: 30s. After first output: 5 min (PlatformIO downloads libs on first build).
-      const ms = firstMessageReceived ? 300_000 : 30_000;
-      timeoutId = setTimeout(() => {
-        setPhase('error');
-        appendLog('⏱ Timeout — keine Antwort von ESPHome. Erster Build kann 3–5 Minuten dauern.');
-        wsRef.current?.close();
-      }, ms);
-    };
+    // 4 — Compile via /compile WebSocket (waits for exit before proceeding)
+    setPhase('compiling');
+    appendLog('Kompiliere — bitte warten (erster Build: 2–5 Minuten)…');
+    const compileOk = await runWs(
+      `${wsProto}://${wsHost}/compile`,
+      { type: 'spawn', configuration: filename },
+      { ...wsOpts, phaseDetect: detectCompilePhase, firstTimeoutMs: 30_000, idleTimeoutMs: 180_000 },
+    );
 
-    // Guard: filename must be safe before we open the socket
-    if (!/^[a-z0-9][a-z0-9_-]*\.yaml$/.test(filename)) {
-      setPhase('error');
-      appendLog('✗ Ungültiger Konfigurationsname.');
-      return;
-    }
+    if (!compileOk || cancelRef.current) return;
 
-    try {
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-      resetTimeout();
-      let exited = false;
+    // 5 — Upload via /upload WebSocket (only reached if compile succeeded)
+    appendLog(`✓ Kompilierung erfolgreich — starte ${method === 'usb' ? 'USB-Flash' : 'OTA-Update'}…`);
+    setPhase('flashing');
+    const uploadOk = await runWs(
+      `${wsProto}://${wsHost}/upload`,
+      { type: 'spawn', configuration: filename, port },
+      { ...wsOpts, phaseDetect: detectUploadPhase, firstTimeoutMs: 30_000, idleTimeoutMs: 120_000 },
+    );
 
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'spawn', configuration: filename, port }));
-      };
-
-      ws.onmessage = event => {
-        if (cancelRef.current) return;
-        firstMessageReceived = true;
-        resetTimeout();
-        try {
-          const msg = JSON.parse(event.data);
-          if (msg.event === 'line') {
-            const line = (msg.data ?? '').trim();
-            if (line) appendLog(line);
-            if (/Compiling/i.test(line))                                setPhase('compiling');
-            if (/Linking/i.test(line))                                  setPhase('linking');
-            if (/Uploading|OTA in progress|Connecting to/i.test(line)) setPhase('flashing');
-            if (/Rebooting/i.test(line))                                setPhase('rebooting');
-            if (/Successfully compiled|Successfully upload/i.test(line)) setPhase('done');
-            if (/\[ERROR\]|Build failed/i.test(line))                   setPhase('error');
-          }
-          if (msg.event === 'exit') {
-            exited = true;
-            clearTimeout(timeoutId);
-            setPhase(msg.code === 0 ? 'done' : 'error');
-            if (msg.code !== 0) appendLog(`✗ Prozess beendet mit Code ${msg.code}`);
-            ws.close();
-          }
-        } catch { /* ignore non-JSON frames */ }
-      };
-
-      ws.onerror = () => {
-        if (cancelRef.current) return;
-        clearTimeout(timeoutId);
-        setPhase('error');
-        appendLog('WebSocket Fehler — prüfe ESPHome Verbindung.');
-      };
-
-      ws.onclose = () => {
-        clearTimeout(timeoutId);
-        wsRef.current = null;
-        if (!exited && !cancelRef.current) {
-          setPhase('error');
-          appendLog('⚡ Verbindung unterbrochen.');
-        }
-      };
-    } catch (err) {
-      clearTimeout(timeoutId);
-      setPhase('error');
-      appendLog(`WebSocket Fehler: ${err.message}`);
-    }
+    if (!cancelRef.current && uploadOk) setPhase('done');
   }
 
   // ── Render ───────────────────────────────────────────────────
