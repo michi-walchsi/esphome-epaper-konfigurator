@@ -120,7 +120,9 @@ export default function InstallModal({ config, esphomeUrl, esphomeApiBase, deepS
     } else {
       const valid = devices.find(d => d.name === selected);
       if (!valid) return;
-      onConfirm({ method: 'ota', port: 'OTA', configName: valid.name });
+      // ESPHome expects the device's IP/hostname as upload-port for OTA
+      const otaPort = valid.address || `${valid.name}.local`;
+      onConfirm({ method: 'ota', port: otaPort, configName: valid.name });
     }
   }
 

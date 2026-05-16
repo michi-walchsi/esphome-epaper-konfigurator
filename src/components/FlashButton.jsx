@@ -165,13 +165,16 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
     const wsUrl   = `${wsProto}://${wsHost}/upload`;
 
     let timeoutId = null;
+    let firstMessageReceived = false;
     const resetTimeout = () => {
       clearTimeout(timeoutId);
+      // Before first output: 30s. After first output: 5 min (PlatformIO downloads libs on first build).
+      const ms = firstMessageReceived ? 300_000 : 30_000;
       timeoutId = setTimeout(() => {
         setPhase('error');
-        appendLog('⏱ Timeout — keine Antwort von ESPHome nach 60 Sekunden.');
+        appendLog('⏱ Timeout — keine Antwort von ESPHome. Erster Build kann 3–5 Minuten dauern.');
         wsRef.current?.close();
-      }, 60_000);
+      }, ms);
     };
 
     // Guard: filename must be safe before we open the socket
@@ -193,6 +196,7 @@ export default function FlashButton({ config, yaml, esphomeUrl, esphomeApiBase, 
 
       ws.onmessage = event => {
         if (cancelRef.current) return;
+        firstMessageReceived = true;
         resetTimeout();
         try {
           const msg = JSON.parse(event.data);
